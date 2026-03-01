@@ -1,75 +1,168 @@
+from dataclasses import dataclass
+from typing import List, Dict, Any
+
+@dataclass(frozen=True, slots=True)
+class EventBAxiom:
+    name: str
+    predicate: str
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EventBAxiom":
+        return EventBAxiom(
+            name=data.get("name", ""),
+            predicate=data.get("predicate", "")
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EventBInvariant:
+    name: str
+    predicate: str
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EventBInvariant":
+        return EventBInvariant(
+            name=data.get("name", ""),
+            predicate=data.get("predicate", "")
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EventBGuard:
+    name: str
+    predicate: str
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EventBGuard":
+        return EventBGuard(
+            name=data.get("name", ""),
+            predicate=data.get("predicate", "")
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EventBAction:
+    name: str
+    assignment: str
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EventBAction":
+        return EventBAction(
+            name=data.get("name", ""),
+            assignment=data.get("assignment", "")
+        )
+
+
+# -------------------------
+# Context
+# -------------------------
+
+@dataclass(frozen=True, slots=True)
 class EventBContext:
-    __slots__ = ['name', 'sets', 'constants', 'axioms', 'extends']
 
-    def __init__(self, data):
-        super().__setattr__('name', data.get("CONTEXT"))
-        super().__setattr__('sets', data.get("SETS", []))
-        super().__setattr__('constants', data.get("CONSTANTS", []))
-        super().__setattr__('axioms', data.get("AXIOMS", []))
-        super().__setattr__('extends', data.get("EXTENDS", []))
+    name: str
+    sets: List[str]
+    constants: List[str]
+    axioms: List[EventBAxiom]
+    extends: List[str]
 
-    def __setattr__(self, key, value):
-        raise AttributeError("Immutable EventBContext")
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EventBContext":
 
-    def __str__(self) -> str:
-        sets_str = ', '.join(self.sets)
-        const_str = ', '.join(self.constants)
-        axioms_str = ', '.join(ax.get('predicate', '') for ax in self.axioms)
-        extends_str = ', '.join(self.extends)
-        return (f"Context: {self.name}\n"
-                f"  Sets: [{sets_str}]\n"
-                f"  Constants: [{const_str}]\n"
-                f"  Axioms: [{axioms_str}]\n"
-                f"  Extends: [{extends_str}]")
+        return EventBContext(
+            name=data.get("CONTEXT", ""),
+            sets=list(data.get("SETS", [])),
+            constants=list(data.get("CONSTANTS", [])),
+            axioms=[
+                EventBAxiom.from_dict(ax)
+                for ax in data.get("AXIOMS", [])
+            ],
+            extends=list(data.get("EXTENDS", []))
+        )
 
+    def __str__(self):
 
+        return (
+            f"Context: {self.name}\n"
+            f"  Sets: {self.sets}\n"
+            f"  Constants: {self.constants}\n"
+            f"  Axioms: {[ax.predicate for ax in self.axioms]}\n"
+            f"  Extends: {self.extends}"
+        )
+
+@dataclass(frozen=True, slots=True)
 class EventBEvent:
-    __slots__ = ['name', 'refines', 'any', 'where', 'withs', 'then']
 
-    def __init__(self, data):
-        super().__setattr__('name', data.get("event_name"))
-        super().__setattr__('refines', data.get("REFINES", []))
-        super().__setattr__('any', data.get("ANY", []))
-        super().__setattr__('where', data.get("WHERE", []))
-        super().__setattr__('withs', data.get("WITH", []))
-        super().__setattr__('then', data.get("THEN", []))
+    name: str
+    refines: List[str]
+    any: List[str]
+    where: List[EventBGuard]
+    withs: List[str]
+    then: List[EventBAction]
 
-    def __setattr__(self, key, value):
-        raise AttributeError("Immutable EventBEvent")
-    
-    def __str__(self) -> str:
-        guards = ', '.join(g.get('predicate', '') for g in self.where)
-        actions = ', '.join(a.get('assignment', '') for a in self.then)
-        any_vars = ', '.join(self.any)
-        return (f"Event: {self.name}\n"
-                f"  ANY: [{any_vars}]\n"
-                f"  WHERE (Guards): [{guards}]\n"
-                f"  THEN (Actions): [{actions}]")
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EventBEvent":
 
+        return EventBEvent(
+            name=data.get("event_name", ""),
+            refines=list(data.get("REFINES", [])),
+            any=list(data.get("ANY", [])),
+            where=[
+                EventBGuard.from_dict(g)
+                for g in data.get("WHERE", [])
+            ],
+            withs=list(data.get("WITH", [])),
+            then=[
+                EventBAction.from_dict(a)
+                for a in data.get("THEN", [])
+            ]
+        )
 
+    def __str__(self):
+
+        return (
+            f"Event: {self.name}\n"
+            f"  ANY: {self.any}\n"
+            f"  Guards: {[g.predicate for g in self.where]}\n"
+            f"  Actions: {[a.assignment for a in self.then]}"
+        )
+
+@dataclass(frozen=True, slots=True)
 class EventBMachine:
-    __slots__ = ['name', 'refines', 'sees', 'variables', 'invariants', 'events']
 
-    def __init__(self, data):
-        super().__setattr__('name', data.get("MACHINE"))
-        super().__setattr__('refines', data.get("REFINES", []))
-        super().__setattr__('sees', data.get("SEES", []))
-        super().__setattr__('variables', data.get("VARIABLES", []))
-        super().__setattr__('invariants', data.get("INVARIANTS", []))
-        super().__setattr__('events', [EventBEvent(ev) for ev in data.get("EVENTS", [])])
+    name: str
+    refines: List[str]
+    sees: List[str]
+    variables: List[str]
+    invariants: List[EventBInvariant]
+    events: List[EventBEvent]
 
-    def __setattr__(self, key, value):
-        raise AttributeError("Immutable EventBMachine")
-    
-    def __str__(self) -> str:
-        vars_str = ', '.join(self.variables)
-        invs_str = ', '.join(inv.get('predicate', '') for inv in self.invariants)
-        events_str = '\n'.join(str(ev) for ev in self.events)
-        refines_str = ', '.join(self.refines)
-        sees_str = ', '.join(self.sees)
-        return (f"Machine: {self.name}\n"
-                f"  Refines: [{refines_str}]\n"
-                f"  Sees: [{sees_str}]\n"
-                f"  Variables: [{vars_str}]\n"
-                f"  Invariants: [{invs_str}]\n"
-                f"  Events:\n{events_str}")
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "EventBMachine":
+
+        return EventBMachine(
+            name=data.get("MACHINE", ""),
+            refines=list(data.get("REFINES", [])),
+            sees=list(data.get("SEES", [])),
+            variables=list(data.get("VARIABLES", [])),
+            invariants=[
+                EventBInvariant.from_dict(inv)
+                for inv in data.get("INVARIANTS", [])
+            ],
+            events=[
+                EventBEvent.from_dict(ev)
+                for ev in data.get("EVENTS", [])
+            ]
+        )
+
+    def __str__(self):
+
+        return (
+            f"Machine: {self.name}\n"
+            f"  Refines: {self.refines}\n"
+            f"  Sees: {self.sees}\n"
+            f"  Variables: {self.variables}\n"
+            f"  Invariants: {[inv.predicate for inv in self.invariants]}\n"
+            f"  Events:\n" +
+            "\n".join(str(ev) for ev in self.events)
+        )
