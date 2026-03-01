@@ -1,5 +1,5 @@
 import json
-from EventbToPAT.components import *
+from components import *
 from typing import List, Dict, Any, Tuple
 
 # -----------------------------
