@@ -1,34 +1,15 @@
-from dataclasses import dataclass, field
-from typing import List, ClassVar, Mapping
-from types import MappingProxyType
+from dataclasses import dataclass
+from typing import List
+from syntaxTranslator import *
 from components import *
-
-@dataclass
-class SyntaxTranslator:
-
-    SYMBOL_MAP: ClassVar[Mapping[str, str]] = MappingProxyType({
-        "TRUE": "true",
-        "FALSE": "false",
-        "≠": "!=",
-        "¬": "!",
-        "∧": "&&",
-        "∨": "||",
-        "≤": "<=",
-        "≥": ">=",
-        "=": "=="
-    })
-
-    def convert_expr(self, expr: str) -> str:
-        expr = expr.strip()
-        for k, v in self.SYMBOL_MAP.items():
-            expr = expr.replace(k, v)
-        return expr
-
 
 @dataclass
 class ContextTranslator:
 
-    syntax: SyntaxTranslator = field(default_factory=SyntaxTranslator)
+    translator: SyntaxTranslator
+
+    def __init__(self):
+        self.translator = SyntaxTranslator(extra_functions=["partition"]) # Might need to add more functions as we go
 
     def translate(self, contexts: List[EventBContext]) -> str:
 
@@ -37,9 +18,8 @@ class ContextTranslator:
 
         for ctx in contexts:
             for a in ctx.axioms:
-                raw = self.process_axioms(a)
-                translation = self.syntax.convert_expr(raw)
-
+                translation = self.translate_axiom(a)
+                
                 if translation:
                     if translation.startswith("enum "):
                         output.append(translation)
@@ -67,3 +47,41 @@ class ContextTranslator:
                 return ""
             return f"enum {terms[0]} {{{', '.join(terms[1:])}}};"
         return result
+
+    def translate_axiom(self, axiom: EventBAxiom) -> str:
+
+        tokens = self.translator.classify_tokens(axiom.predicate)
+        postfix = self.translator.to_postfix(tokens)
+
+        if postfix[-1].type == TokenType.FUNCTION and postfix[-1].value == "partition":
+            set_name = postfix[0].value
+            elements = [t.value for t in postfix[1:-1]]
+            return f"enum {set_name} {{{','.join(elements)}}};"
+
+        stack = []
+
+        for token in postfix:
+            match token.type:
+                case TokenType.TERM:
+                    stack.append(token.value)
+
+                case TokenType.OPERATOR:
+                    print(f"Processing operator: {token.value} with stack: {stack}")
+                    pat_op, arity, prec = SyntaxTranslator.OPERATORS[token.value]
+                    if arity == 1:
+                        operand = stack.pop()
+                        stack.append(f"{pat_op}{operand}")
+                    elif arity == 2:
+                        right = stack.pop()
+                        left = stack.pop()
+                        stack.append(f"({left} {pat_op} {right})")
+
+                case TokenType.FUNCTION:
+                    args = stack.copy()
+                    stack.clear()
+                    stack.append(f"{token.value}({','.join(args)})")
+
+        return stack[0]
+
+    def translate_context(self, axioms: List[str]) -> List[List[str]]:
+        return [self.translate_axiom(a) for a in axioms]

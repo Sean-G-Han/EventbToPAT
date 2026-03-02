@@ -1,0 +1,84 @@
+{
+  "CONTEXT": "TRAFFIC_LIGHT_SYSTEM",
+  "EXTENDS": [],
+  "SETS": [
+    "LightColor",
+    "Mode",
+    "SensorState"
+  ],
+  "CONSTANTS": [
+    "red",
+    "yellow",
+    "green",
+    "auto",
+    "manual",
+    "enabled",
+    "disabled",
+    "maxSpeed",
+    "minSpeed",
+    "defaultMode"
+  ],
+  "AXIOMS": [
+
+    {
+      "label_name": "axm1_partition_colors",
+      "predicate": "partition(LightColor, {red}, {yellow}, {green})",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm2_partition_modes",
+      "predicate": "partition(Mode, {auto}, {manual})",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm3_partition_sensor",
+      "predicate": "partition(SensorState, {enabled}, {disabled})",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm4_speed_bounds",
+      "predicate": "minSpeed ≥ 0 ∧ maxSpeed > minSpeed",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm5_default_mode_valid",
+      "predicate": "defaultMode ∈ Mode",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm6_color_membership",
+      "predicate": "red ∈ LightColor ∧ green ∈ LightColor ∧ yellow ∈ LightColor",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm7_mode_logic",
+      "predicate": "(defaultMode = auto) ∨ (defaultMode = manual)",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm8_speed_implication",
+      "predicate": "(maxSpeed > 100) ⇒ (defaultMode = auto)",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm9_sensor_logic",
+      "predicate": "¬(enabled = disabled)",
+      "comments": ""
+    },
+
+    {
+      "label_name": "axm10_complex_logic",
+      "predicate": "(minSpeed ≥ 0 ∧ maxSpeed > minSpeed) ⇒ (defaultMode ∈ Mode ∧ red ∈ LightColor)",
+      "comments": ""
+    }
+
+  ]
+}

@@ -58,7 +58,7 @@ class EventBParser:
         return objects
 
 if __name__ == "__main__":
-    filename = "eventb_text.txt"  # Replace with your file path
+    filename = "test_context.txt"  # Replace with your file path
     parser = EventBParser(filename)
     contexts, machines = parser.parse_file()
 
@@ -70,6 +70,8 @@ if __name__ == "__main__":
     # for mach in machines:
     #     print(f"Machine: {mach.name}, Variables: {len(mach.variables)}, Invariants: {len(mach.invariants)}, Events: {len(mach.events)}")
     #     print(mach)
+    #     for inv in mach.invariants:
+    #         print(inv)
     #     for ev in mach.events:
     #         print(f"  Event: {ev.name}, Guards: {len(ev.where)}, Actions: {len(ev.then)}")
     #         print(ev)
