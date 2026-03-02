@@ -41,6 +41,8 @@ class EventBParser:
         with open(self.filename, "r", encoding="utf-8") as f:
 
             for line in f:
+                line = line.replace("\\t", "")
+                line = line.replace("\\n", "")
                 stripped = line.strip()
 
                 if not stripped:
@@ -58,7 +60,7 @@ class EventBParser:
         return objects
 
 if __name__ == "__main__":
-    filename = "contexts\context2.txt"  # Replace with your file path
+    filename = "contexts\context3.txt" # Problems with 3 (1, 2 and 4 works as intended so far)
     parser = EventBParser(filename)
     contexts, machines = parser.parse_file()
 
