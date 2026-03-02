@@ -52,11 +52,6 @@ class EventBAction:
             assignment=data.get("assignment", "")
         )
 
-
-# -------------------------
-# Context
-# -------------------------
-
 @dataclass(frozen=True, slots=True)
 class EventBContext:
 
