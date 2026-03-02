@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Any, Tuple
 from components import *
-from converter import *
+from syntaxTranslator import *
 
 class EventBParser:
     """
@@ -58,23 +58,27 @@ class EventBParser:
         return objects
 
 if __name__ == "__main__":
-    filename = "test_context.txt"  # Replace with your file path
+    filename = "contexts\context2.txt"  # Replace with your file path
     parser = EventBParser(filename)
     contexts, machines = parser.parse_file()
 
     print(f"Loaded {len(contexts)} contexts and {len(machines)} machines.\n")
 
-    # for ctx in contexts:
-    #     print(ctx)
+    for ctx in contexts:
+        print(ctx)
+        for a in ctx.axioms:
+            predicate = a.predicate
+            syntax_translator = SyntaxTranslator()
+            tokens = syntax_translator.classify_tokens(predicate)
+            postfix_tokens = syntax_translator.to_postfix(tokens)
+            for t in postfix_tokens:
+                print(t)
 
-    # for mach in machines:
-    #     print(f"Machine: {mach.name}, Variables: {len(mach.variables)}, Invariants: {len(mach.invariants)}, Events: {len(mach.events)}")
-    #     print(mach)
-    #     for inv in mach.invariants:
-    #         print(inv)
-    #     for ev in mach.events:
-    #         print(f"  Event: {ev.name}, Guards: {len(ev.where)}, Actions: {len(ev.then)}")
-    #         print(ev)
-
-    ctx_trans = ContextTranslator() # enums and defines
-    print(ctx_trans.translate(contexts))
+    for mach in machines:
+        print(f"Machine: {mach.name}, Variables: {len(mach.variables)}, Invariants: {len(mach.invariants)}, Events: {len(mach.events)}")
+        print(mach)
+        for inv in mach.invariants:
+            print(inv)
+        for ev in mach.events:
+            print(f"  Event: {ev.name}, Guards: {len(ev.where)}, Actions: {len(ev.then)}")
+            print(ev)

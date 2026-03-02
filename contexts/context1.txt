@@ -1,0 +1,35 @@
+{
+  "CONTEXT" : "cd",
+  "EXTENDS" : [ ],
+  "SETS" : [ ],
+  "CONSTANTS" : [ "d" ],
+  "AXIOMS" : [ {
+    "label_name" : "axm1",
+    "predicate" : "d>0",
+    "comments" : ""
+  } ]
+}
+
+{
+  "CONTEXT" : "COLOR",
+  "EXTENDS" : [ ],
+  "SETS" : [ "Color" ],
+  "CONSTANTS" : [ "green", "red" ],
+  "AXIOMS" : [ {
+    "label_name" : "axm1",
+    "predicate" : "partition(Color, {green}, {red})",
+    "comments" : ""
+  } ]
+}
+
+{
+  "CONTEXT" : "SENSOR",
+  "EXTENDS" : [ ],
+  "SETS" : [ "Sensor" ],
+  "CONSTANTS" : [ "on", "off" ],
+  "AXIOMS" : [ {
+    "label_name" : "axm1",
+    "predicate" : "partition(Sensor, {on}, {off})",
+    "comments" : ""
+  } ]
+}

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import ClassVar, Dict, List, Tuple
+from typing import ClassVar, Dict, List, Tuple, Set
 from enum import Enum, auto
 import re
 
@@ -65,14 +65,12 @@ class SyntaxTranslator:
         ",": (",", 0, 0),
     }
 
+    FUNCTIONS: ClassVar[Set[str]] = set("partition")
+
     IDENTIFIER_PATTERN: ClassVar[re.Pattern] = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
     NUMBER_PATTERN: ClassVar[re.Pattern] = re.compile(r"^[0-9]+$")
     
-    def __init__(self, extra_functions: List[str] = None):
-        """
-        extra_functions: list of function names to recognize automatically
-        """
-        self.extra_functions = set(extra_functions) if extra_functions else set()
+    def __init__(self):
         self.TOKEN_PATTERN = self._build_token_pattern()
 
     @classmethod
@@ -97,7 +95,7 @@ class SyntaxTranslator:
                     classified.append(Token(TokenType.OPERATOR, token))
 
             elif (
-                (token in self.extra_functions or self.IDENTIFIER_PATTERN.match(token))
+                (token in self.FUNCTIONS or self.IDENTIFIER_PATTERN.match(token))
                 and i + 1 < len(tokens)
                 and tokens[i + 1] == "("
             ):
@@ -109,8 +107,8 @@ class SyntaxTranslator:
         return classified   
 
     def to_postfix(self, tokens: List[Token]) -> List[Token]:
-        output = []
-        stack = []
+        output: List[Token] = []
+        stack: List[Token] = []
 
         for token in tokens:
             match token.type:

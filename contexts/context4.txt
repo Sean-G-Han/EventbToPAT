@@ -1,0 +1,19 @@
+{
+  "CONTEXT" : "doors_ctx3",
+  "EXTENDS" : [ "doors_ctx2" ],
+  "SETS" : [ "D" ],
+  "CONSTANTS" : [ "org", "dst" ],
+  "AXIOMS" : [ {
+    "label_name" : "axm1",
+    "predicate" : "org ∈ D → L",
+    "comments" : ""
+  }, {
+    "label_name" : "axm2",
+    "predicate" : "dst ∈ D → L",
+    "comments" : ""
+  }, {
+    "label_name" : "axm3",
+    "predicate" : "com = (org∼ ; dst)",
+    "comments" : ""
+  } ]
+}
