@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict, Any, ClassVar
+from typing import List, Dict, Any, ClassVar, Set
 
 @dataclass(frozen=True, slots=True)
 class EventBAxiom:
@@ -166,10 +166,43 @@ class EventBMachine:
         )
 
 @dataclass(frozen=True, slots=True)
-class PatTranslaton:
+class PatGlobal:
     defineCount: ClassVar[int] = 0
+    enums: ClassVar[Set[str]] = set()
+    variables: ClassVar[Set[str]] = set()
+    defines: ClassVar[Set[str]] = set()
 
     @classmethod
     def increment_define_count(cls) -> int:
         cls.defineCount += 1
         return cls.defineCount
+    
+    @classmethod
+    def add_enum(cls, enum_name: str) -> None:
+        cls.enums.add(enum_name)
+
+    @classmethod
+    def has_enum(cls, enum_name: str) -> bool:
+        return enum_name in cls.enums
+
+    @classmethod
+    def add_variable(cls, var_name: str) -> None:
+        cls.variables.add(var_name)
+
+    @classmethod
+    def has_variable(cls, var_name: str) -> bool:
+        return var_name in cls.variables
+    
+    @classmethod
+    def add_define(cls, define_name: str) -> None:
+        cls.defines.add(define_name)
+    
+    @classmethod
+    def has_define(cls, define_name: str) -> bool:
+        return define_name in cls.defines
+    
+    @classmethod
+    def print_globals(cls) -> None:
+        print(f"Enums: {cls.enums}")
+        print(f"Variables: {cls.variables}")
+        print(f"Defines: {cls.defines}")

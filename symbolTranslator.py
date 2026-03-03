@@ -1,6 +1,6 @@
 from enum import Enum, auto
 from typing import List
-from components import PatTranslaton
+from components import PatGlobal
 
 class TranslationPurpose(Enum):
     CONTEXT = auto()
@@ -16,20 +16,8 @@ class PartitionTranslation(TranslationHandler):
         stack: List[str],
         purpose: TranslationPurpose = None
     ) -> str:
+        PatGlobal.add_enum(stack[0])
         return f"enum {{{','.join(stack[1:])}}};\n"
-
-class EqualityTranslation(TranslationHandler):
-    def translate(
-        self,
-        stack: List[str],
-        purpose: TranslationPurpose = None
-    ) -> str:
-        name = stack[-2]
-        value = stack[-1]
-        if purpose == TranslationPurpose.MACHINE_VAR:
-            return f"var {name} = {value};\n"
-        return f"#define {name} {value};\n"
-
 
 class AssignmentTranslation(TranslationHandler):
     def translate(
@@ -40,6 +28,7 @@ class AssignmentTranslation(TranslationHandler):
         name = stack[-2]
         value = stack[-1]
         if purpose == TranslationPurpose.MACHINE_VAR:
+            PatGlobal.add_variable(name)
             return f"var {name} = {value};\n"
         return f"#define {name} {value};\n"
 
@@ -52,7 +41,7 @@ class GreaterTranslation(TranslationHandler):
     ) -> str:
         name = stack[-2]
         value = stack[-1]
-        count = PatTranslaton.increment_define_count()
+        count = PatGlobal.increment_define_count()
 
         return (
             f"#define {name} {int(value) + 1};\n"
@@ -69,7 +58,7 @@ class LessTranslation(TranslationHandler):
     ) -> str:
         name = stack[-2]
         value = stack[-1]
-        count = PatTranslaton.increment_define_count()
+        count = PatGlobal.increment_define_count()
 
         return (
             f"#define {name} {int(value) - 1};\n"
@@ -86,7 +75,7 @@ class GreaterEqualTranslation(TranslationHandler):
     ) -> str:
         name = stack[-2]
         value = stack[-1]
-        count = PatTranslaton.increment_define_count()
+        count = PatGlobal.increment_define_count()
 
         return (
             f"#define {name} {int(value)};\n"
@@ -103,7 +92,7 @@ class LessEqualTranslation(TranslationHandler):
     ) -> str:
         name = stack[-2]
         value = stack[-1]
-        count = PatTranslaton.increment_define_count()
+        count = PatGlobal.increment_define_count()
 
         return (
             f"#define {name} {int(value)};\n"

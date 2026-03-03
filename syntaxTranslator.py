@@ -148,12 +148,11 @@ class SyntaxTranslator:
 
         handlers: Dict[str, TranslationHandler] = {
             "partition": PartitionTranslation(),
-            "=": EqualityTranslation(),
             ">": GreaterTranslation(),
             "<": LessTranslation(),
             "≥": GreaterEqualTranslation(),
             "≤": LessEqualTranslation(),
-            "≔": EqualityTranslation(),
+            "≔": AssignmentTranslation(),
         }
 
         for token in postfix_tokens:

@@ -80,6 +80,7 @@ if __name__ == "__main__":
                 syntax_translator = SyntaxTranslator()
                 print(syntax_translator.translate(assignment, purpose=TranslationPurpose.MACHINE_VAR))
 
+    PatGlobal.print_globals()
 
     # for mach in machines:
     #     print(f"Machine: {mach.name}, Variables: {len(mach.variables)}, Invariants: {len(mach.invariants)}, Events: {len(mach.events)}")
