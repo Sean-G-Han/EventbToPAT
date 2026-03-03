@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import ClassVar, Dict, List, Tuple, Set
+from typing import ClassVar, Dict, List
 from enum import Enum, auto
+from symbolTranslator import *
 import re
 
 class TokenType(Enum):
@@ -23,47 +24,49 @@ class Token:
 class SymbolInfo:
     translation: str | None
     precedence: int
+    arity: int = 2
 
 class SymbolSet:
     OPERATORS: ClassVar[Dict[str, SymbolInfo]] = {
-        "¬": SymbolInfo(None, 9),
-        "‥": SymbolInfo(None, 9),
-        "∀": SymbolInfo(None, 1),
-        "∃": SymbolInfo(None, 1),
-        "∃!": SymbolInfo(None, 1),
-        "∄": SymbolInfo(None, 1),
-        "⇒": SymbolInfo(None, 2),
-        "=": SymbolInfo(None, 3),
-        "≠": SymbolInfo(None, 3),
-        "<": SymbolInfo(None, 3),
-        ">": SymbolInfo(None, 3),
-        "≤": SymbolInfo(None, 3),
-        "≥": SymbolInfo(None, 3),
-        "∈": SymbolInfo(None, 3),
-        "∉": SymbolInfo(None, 3),
-        "⊆": SymbolInfo(None, 3),
-        "⊂": SymbolInfo(None, 3),
-        "⊇": SymbolInfo(None, 3),
-        "⊃": SymbolInfo(None, 3),
-        "∨": SymbolInfo(None, 4),
-        "∪": SymbolInfo(None, 4),
-        "∧": SymbolInfo(None, 5),
-        "∩": SymbolInfo(None, 5),
-        "∖": SymbolInfo(None, 6),
-        "+": SymbolInfo(None, 7),
-        "-": SymbolInfo(None, 7),
-        "−": SymbolInfo(None, 7),
-        "*": SymbolInfo(None, 8),
-        "/": SymbolInfo(None, 8),
-        "mod": SymbolInfo(None, 8),
-        "·": SymbolInfo(None, 8),
-        "(": SymbolInfo(None, 0),
-        ")": SymbolInfo(None, 0),
-        "{": SymbolInfo(None, 0),
-        "}": SymbolInfo(None, 0),
-        "[": SymbolInfo(None, 0),
-        "]": SymbolInfo(None, 0),
-        ",": SymbolInfo(None, 0),
+        "≔": SymbolInfo(None, 10, 2),
+        "¬": SymbolInfo(None, 9, 1),
+        "‥": SymbolInfo(None, 9, 2),
+        "∀": SymbolInfo(None, 1, 2),
+        "∃": SymbolInfo(None, 1, 2),
+        "∃!": SymbolInfo(None, 1, 2),
+        "∄": SymbolInfo(None, 1, 2),
+        "⇒": SymbolInfo(None, 2, 2),
+        "=": SymbolInfo(None, 3, 2),
+        "≠": SymbolInfo(None, 3, 2),
+        "<": SymbolInfo(None, 3, 2),
+        ">": SymbolInfo(None, 3, 2),
+        "≤": SymbolInfo(None, 3, 2),
+        "≥": SymbolInfo(None, 3, 2),
+        "∈": SymbolInfo(None, 3, 2),
+        "∉": SymbolInfo(None, 3, 2),
+        "⊆": SymbolInfo(None, 3, 2),
+        "⊂": SymbolInfo(None, 3, 2),
+        "⊇": SymbolInfo(None, 3, 2),
+        "⊃": SymbolInfo(None, 3, 2),
+        "∨": SymbolInfo(None, 4, 2),
+        "∪": SymbolInfo(None, 4, 2),
+        "∧": SymbolInfo(None, 5, 2),
+        "∩": SymbolInfo(None, 5, 2),
+        "∖": SymbolInfo(None, 6, 2),
+        "+": SymbolInfo(None, 7, 2),
+        "-": SymbolInfo(None, 7, 2), # can be unary as well but for simplicity we will treat it as binary
+        "−": SymbolInfo(None, 7, 2),
+        "*": SymbolInfo(None, 8, 2),
+        "/": SymbolInfo(None, 8, 2),
+        "mod": SymbolInfo(None, 8, 2),
+        "·": SymbolInfo(None, 8, 2),
+        "(": SymbolInfo(None, 0, 0),
+        ")": SymbolInfo(None, 0, 0),
+        "{": SymbolInfo(None, 0, 0),
+        "}": SymbolInfo(None, 0, 0),
+        "[": SymbolInfo(None, 0, 0),
+        "]": SymbolInfo(None, 0, 0),
+        ",": SymbolInfo(None, 0, 0),
     }
 
     def precedence(self, op: str) -> int:
@@ -88,11 +91,9 @@ class SyntaxTranslator:
 
     def classify_tokens(self, expr: str) -> List[Token]:
         reg_pattern = self.TOKEN_PATTERN.split(expr)
-        print(f"Regex split result: {reg_pattern}")
         tokens =  [t.strip() for t in reg_pattern if t.strip()]
         classified = []
         for i, token in enumerate(tokens):
-            print(f"Processing token: '{token}'")
             if self.sym_set.is_operator(token):
                 if token == ",":
                     classified.append(Token(TokenType.COMMA, token))
@@ -103,7 +104,7 @@ class SyntaxTranslator:
                 elif token not in "][]}{":
                     classified.append(Token(TokenType.OPERATOR, token))
 
-            elif (i + 1 < len(tokens) and tokens[i + 1] == "("):
+            elif (i + 1 < len(tokens) and tokens[i + 1] == "("): # must add certain specialised strings like parity, card, etc. here as well
                 classified.append(Token(TokenType.FUNCTION, token))                
 
             else:
@@ -138,3 +139,30 @@ class SyntaxTranslator:
         while stack:
             output.append(stack.pop())
         return output
+    
+    def translate(self, expr: str, purpose: TranslationPurpose = None) -> str:
+        tokens = self.classify_tokens(expr)
+        postfix_tokens = self.to_postfix(tokens)
+        stack: List[str] = []
+        output = []
+
+        handlers: Dict[str, TranslationHandler] = {
+            "partition": PartitionTranslation(),
+            "=": EqualityTranslation(),
+            ">": GreaterTranslation(),
+            "<": LessTranslation(),
+            "≥": GreaterEqualTranslation(),
+            "≤": LessEqualTranslation(),
+            "≔": EqualityTranslation(),
+        }
+
+        for token in postfix_tokens:
+            if token.type == TokenType.TERM:
+                stack.append(token.value)
+
+            elif token.type in (TokenType.OPERATOR, TokenType.FUNCTION):
+                handler = handlers.get(token.value)
+                if handler:
+                    output.append(handler.translate(stack, purpose=purpose))
+
+        return "".join(output).strip()

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List, Dict, Any, ClassVar
 
 @dataclass(frozen=True, slots=True)
 class EventBAxiom:
@@ -112,6 +112,9 @@ class EventBEvent:
                 for a in data.get("THEN", [])
             ]
         )
+    
+    def  is_initialisation(self) -> bool:
+        return self.name.lower() == "initialisation"
 
     def __str__(self):
 
@@ -161,3 +164,12 @@ class EventBMachine:
             f"  Events:\n" +
             "\n".join(str(ev) for ev in self.events)
         )
+
+@dataclass(frozen=True, slots=True)
+class PatTranslaton:
+    defineCount: ClassVar[int] = 0
+
+    @classmethod
+    def increment_define_count(cls) -> int:
+        cls.defineCount += 1
+        return cls.defineCount

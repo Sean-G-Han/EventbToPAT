@@ -60,27 +60,32 @@ class EventBParser:
         return objects
 
 if __name__ == "__main__":
-    filename = "contexts\context3.txt" # Problems with 3 (1, 2 and 4 works as intended so far) Also currently parity is treated as both a term and a function which is wrong
+    filename = "eventb_text.txt" # Problems with 3 (1, 2 and 4 works as intended so far) Also currently parity is treated as both a term and a function which is wrong
     parser = EventBParser(filename)
     contexts, machines = parser.parse_file()
 
     print(f"Loaded {len(contexts)} contexts and {len(machines)} machines.\n")
 
     for ctx in contexts:
-        print(ctx)
         for a in ctx.axioms:
             predicate = a.predicate
             syntax_translator = SyntaxTranslator()
-            tokens = syntax_translator.classify_tokens(predicate)
-            postfix_tokens = syntax_translator.to_postfix(tokens)
-            for t in postfix_tokens:
-                print(t)
-
+            print(syntax_translator.translate(predicate))
+    
     for mach in machines:
-        print(f"Machine: {mach.name}, Variables: {len(mach.variables)}, Invariants: {len(mach.invariants)}, Events: {len(mach.events)}")
-        print(mach)
-        for inv in mach.invariants:
-            print(inv)
-        for ev in mach.events:
-            print(f"  Event: {ev.name}, Guards: {len(ev.where)}, Actions: {len(ev.then)}")
-            print(ev)
+        init = filter(lambda e: e.is_initialisation(), mach.events)
+        for ev in init:
+            for a in ev.then:
+                assignment = a.assignment
+                syntax_translator = SyntaxTranslator()
+                print(syntax_translator.translate(assignment, purpose=TranslationPurpose.MACHINE_VAR))
+
+
+    # for mach in machines:
+    #     print(f"Machine: {mach.name}, Variables: {len(mach.variables)}, Invariants: {len(mach.invariants)}, Events: {len(mach.events)}")
+    #     print(mach)
+    #     for inv in mach.invariants:
+    #         print(inv)
+    #     for ev in mach.events:
+    #         print(f"  Event: {ev.name}, Guards: {len(ev.where)}, Actions: {len(ev.then)}")
+    #         print(ev)
