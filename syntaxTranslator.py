@@ -158,7 +158,8 @@ class SyntaxTranslator:
 
         for token in postfix_tokens:
             if token.type == TokenType.TERM:
-                stack.append(token.value)
+                value = token.value if token.value not in ("TRUE", "FALSE") else token.value.lower()
+                stack.append(value)
 
             elif token.type in (TokenType.OPERATOR, TokenType.FUNCTION):
                 handler = handlers.get(token.value)

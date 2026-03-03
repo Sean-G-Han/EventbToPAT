@@ -57,7 +57,7 @@ class GreaterTranslation(TranslationHandler):
         return (
             f"#define {name} {int(value) + 1};\n"
             f"#define GLOBAL_GUARD{count} ({name} > {value});\n"
-            f"#assert GLOBAL_GUARD{count};\n"
+            f"#assert P |= []GLOBAL_GUARD{count};\n"
         )
 
 
@@ -74,7 +74,7 @@ class LessTranslation(TranslationHandler):
         return (
             f"#define {name} {int(value) - 1};\n"
             f"#define GLOBAL_GUARD{count} ({name} < {value});\n"
-            f"#assert GLOBAL_GUARD{count};\n"
+            f"#assert P |= []GLOBAL_GUARD{count};\n"
         )
 
 
@@ -91,7 +91,7 @@ class GreaterEqualTranslation(TranslationHandler):
         return (
             f"#define {name} {int(value)};\n"
             f"#define GLOBAL_GUARD{count} ({name} >= {value});\n"
-            f"#assert GLOBAL_GUARD{count};\n"
+            f"#assert P |= []GLOBAL_GUARD{count};\n"
         )
 
 
@@ -108,5 +108,5 @@ class LessEqualTranslation(TranslationHandler):
         return (
             f"#define {name} {int(value)};\n"
             f"#define GLOBAL_GUARD{count} ({name} <= {value});\n"
-            f"#assert GLOBAL_GUARD{count};\n"
+            f"#assert P |= []GLOBAL_GUARD{count};\n"
         )
