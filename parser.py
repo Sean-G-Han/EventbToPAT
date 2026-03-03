@@ -60,7 +60,7 @@ class EventBParser:
         return objects
 
 if __name__ == "__main__":
-    filename = "contexts\context3.txt" # Problems with 3 (1, 2 and 4 works as intended so far)
+    filename = "contexts\context3.txt" # Problems with 3 (1, 2 and 4 works as intended so far) Also currently parity is treated as both a term and a function which is wrong
     parser = EventBParser(filename)
     contexts, machines = parser.parse_file()
 
