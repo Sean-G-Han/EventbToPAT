@@ -28,38 +28,61 @@ class SymbolInfo:
 
 class SymbolSet:
     OPERATORS: ClassVar[Dict[str, SymbolInfo]] = {
-        "≔": SymbolInfo(None, 10, 2),
-        "¬": SymbolInfo(None, 9, 1),
-        "‥": SymbolInfo(None, 9, 2),
-        "∀": SymbolInfo(None, 1, 2),
-        "∃": SymbolInfo(None, 1, 2),
-        "∃!": SymbolInfo(None, 1, 2),
-        "∄": SymbolInfo(None, 1, 2),
-        "⇒": SymbolInfo(None, 2, 2),
-        "=": SymbolInfo(None, 3, 2),
-        "≠": SymbolInfo(None, 3, 2),
-        "<": SymbolInfo(None, 3, 2),
-        ">": SymbolInfo(None, 3, 2),
-        "≤": SymbolInfo(None, 3, 2),
-        "≥": SymbolInfo(None, 3, 2),
-        "∈": SymbolInfo(None, 3, 2),
-        "∉": SymbolInfo(None, 3, 2),
-        "⊆": SymbolInfo(None, 3, 2),
-        "⊂": SymbolInfo(None, 3, 2),
-        "⊇": SymbolInfo(None, 3, 2),
-        "⊃": SymbolInfo(None, 3, 2),
+        # Assignment (lowest binding in machine expressions)
+        "≔": SymbolInfo(None, 1, 2),
+
+        # Quantifiers
+        "∀": SymbolInfo(None, 2, 2),
+        "∃": SymbolInfo(None, 2, 2),
+        "∃!": SymbolInfo(None, 2, 2),
+        "∄": SymbolInfo(None, 2, 2),
+
+        # Implication
+        "⇒": SymbolInfo(None, 3, 2),
+
+        # Logical OR
         "∨": SymbolInfo(None, 4, 2),
-        "∪": SymbolInfo(None, 4, 2),
+
+        # Logical AND
         "∧": SymbolInfo(None, 5, 2),
-        "∩": SymbolInfo(None, 5, 2),
-        "∖": SymbolInfo(None, 6, 2),
-        "+": SymbolInfo(None, 7, 2),
-        "-": SymbolInfo(None, 7, 2), # can be unary as well but for simplicity we will treat it as binary
-        "−": SymbolInfo(None, 7, 2),
-        "*": SymbolInfo(None, 8, 2),
-        "/": SymbolInfo(None, 8, 2),
-        "mod": SymbolInfo(None, 8, 2),
-        "·": SymbolInfo(None, 8, 2),
+
+        # Relations
+        "=": SymbolInfo(None, 6, 2),
+        "≠": SymbolInfo(None, 6, 2),
+        "<": SymbolInfo(None, 6, 2),
+        ">": SymbolInfo(None, 6, 2),
+        "≤": SymbolInfo(None, 6, 2),
+        "≥": SymbolInfo(None, 6, 2),
+        "∈": SymbolInfo(None, 6, 2),
+        "∉": SymbolInfo(None, 6, 2),
+        "⊆": SymbolInfo(None, 6, 2),
+        "⊂": SymbolInfo(None, 6, 2),
+        "⊇": SymbolInfo(None, 6, 2),
+        "⊃": SymbolInfo(None, 6, 2),
+
+        # Set operators
+        "∪": SymbolInfo(None, 7, 2),
+        "∩": SymbolInfo(None, 7, 2),
+        "∖": SymbolInfo(None, 7, 2),
+
+        # Range
+        "‥": SymbolInfo(None, 8, 2),
+
+        # Additive
+        "+": SymbolInfo(None, 9, 2),
+        "-": SymbolInfo(None, 9, 2),
+        "−": SymbolInfo(None, 9, 2),
+
+        # Multiplicative
+        "*": SymbolInfo(None, 10, 2),
+        "/": SymbolInfo(None, 10, 2),
+        "mod": SymbolInfo(None, 10, 2),
+        "·": SymbolInfo(None, 10, 2),
+
+        # Unary NOT (highest among logical)
+        "¬": SymbolInfo(None, 11, 1),
+
+        # Parentheses / structural
         "(": SymbolInfo(None, 0, 0),
         ")": SymbolInfo(None, 0, 0),
         "{": SymbolInfo(None, 0, 0),
@@ -148,14 +171,20 @@ class SyntaxTranslator:
 
         handlers: Dict[str, TranslationHandler] = {
             "partition": PartitionTranslation(),
+            "=": EqualityTranslation(),
             ">": GreaterTranslation(),
             "<": LessTranslation(),
             "≥": GreaterEqualTranslation(),
             "≤": LessEqualTranslation(),
             "≔": AssignmentTranslation(),
+            "+": PlusTranslation(),
+            "-": MinusTranslation(),
+            "/": DivideTranslation(),
+            "*": MultiplyTranslation(),
         }
 
         for token in postfix_tokens:
+            # print(f"Processing token: {token}, Stack before: {stack}")
             if token.type == TokenType.TERM:
                 value = token.value if token.value not in ("TRUE", "FALSE") else token.value.lower()
                 stack.append(value)
@@ -163,6 +192,9 @@ class SyntaxTranslator:
             elif token.type in (TokenType.OPERATOR, TokenType.FUNCTION):
                 handler = handlers.get(token.value)
                 if handler:
-                    output.append(handler.translate(stack, purpose=purpose))
+                    stack.append(handler.translate(stack, purpose=purpose))
 
-        return "".join(output).strip()
+        if len(stack) != 1:
+            raise ValueError("Invalid expression, stack should have exactly one element at the end of translation.")
+        
+        return "".join(stack).strip()
