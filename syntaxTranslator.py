@@ -167,7 +167,6 @@ class SyntaxTranslator:
         tokens = self.classify_tokens(expr)
         postfix_tokens = self.to_postfix(tokens)
         stack: List[str] = []
-        output = []
 
         handlers: Dict[str, TranslationHandler] = {
             "partition": PartitionTranslation(),
@@ -178,13 +177,17 @@ class SyntaxTranslator:
             "≤": LessEqualTranslation(),
             "≔": AssignmentTranslation(),
             "+": PlusTranslation(),
-            "-": MinusTranslation(),
+            "−": MinusTranslation(),
             "/": DivideTranslation(),
             "*": MultiplyTranslation(),
+            "⇒": ImplicationTranslation(),
+            "∧": AndTranslation(),
+            "∨": OrTranslation(),
+            "¬": NotTranslation(),
+            "∈": MembershipTranslation(),
         }
-
+        
         for token in postfix_tokens:
-            # print(f"Processing token: {token}, Stack before: {stack}")
             if token.type == TokenType.TERM:
                 value = token.value if token.value not in ("TRUE", "FALSE") else token.value.lower()
                 stack.append(value)
@@ -192,9 +195,10 @@ class SyntaxTranslator:
             elif token.type in (TokenType.OPERATOR, TokenType.FUNCTION):
                 handler = handlers.get(token.value)
                 if handler:
-                    stack.append(handler.translate(stack, purpose=purpose))
-
+                    result = handler.translate(stack, purpose)
+                    stack.append(result)
+                else:
+                    raise ValueError(f"No translation handler for operator/function: {token.value}")
         if len(stack) != 1:
             raise ValueError("Invalid expression, stack should have exactly one element at the end of translation.")
-        
         return "".join(stack).strip()

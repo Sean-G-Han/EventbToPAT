@@ -60,8 +60,9 @@ class EventBParser:
         return objects
 
 if __name__ == "__main__":
-    filename = "eventb_text.txt" # Problems with 3 (1, 2 and 4 works as intended so far) Also currently parity is treated as both a term and a function which is wrong
+    filename = "context\\2_CAR.txt"
     parser = EventBParser(filename)
+    syntax_translator = SyntaxTranslator()
     contexts, machines = parser.parse_file()
 
     print(f"Loaded {len(contexts)} contexts and {len(machines)} machines.\n")
@@ -69,18 +70,39 @@ if __name__ == "__main__":
     for ctx in contexts:
         for a in ctx.axioms:
             predicate = a.predicate
-            syntax_translator = SyntaxTranslator()
-            print(syntax_translator.translate(predicate))
+            print(syntax_translator.translate(predicate, purpose=TranslationPurpose.CONTEXT))
     
     for mach in machines:
         init = filter(lambda e: e.is_initialisation(), mach.events)
+        events = filter(lambda e: not e.is_initialisation(), mach.events)
         for ev in init:
             for a in ev.then:
                 assignment = a.assignment
-                syntax_translator = SyntaxTranslator()
                 print(syntax_translator.translate(assignment, purpose=TranslationPurpose.MACHINE_VAR))
+        event_clauses = []
+        for ev in events:
+            guards = []
+            actions = []
+            for g in ev.where:
+                guard = g.predicate
+                guards.append(syntax_translator.translate(guard, purpose=TranslationPurpose.MACHINE_CONDITION))
+            for a in ev.then:
+                assignment = a.assignment
+                actions.append(syntax_translator.translate(assignment, purpose=TranslationPurpose.MACHINE_ACTION_THEN))
+            guard_str = " && ".join(guards) if guards else "true"
+            action_str = " ".join(actions)
+            event_clause = f"[{guard_str}] {ev.name}{{ {action_str} }} -> P"
+            event_clauses.append(event_clause)
+        process_body = "\n[]\n".join(event_clauses)
+        print(f"P =\n{process_body};\n")
 
-    PatGlobal.print_globals()
+    for mach in machines:
+        for inv in mach.invariants:
+            invariant = inv.predicate
+            translation = syntax_translator.translate(invariant, purpose=TranslationPurpose.MACHINE_CONDITION)
+            count = PatGlobal.increment_define_count()
+            print(f"#define INVARIANT{count} {translation};")
+            print(f"#assert P() |= []INVARIANT{count};")
 
     # for mach in machines:
     #     print(f"Machine: {mach.name}, Variables: {len(mach.variables)}, Invariants: {len(mach.invariants)}, Events: {len(mach.events)}")
