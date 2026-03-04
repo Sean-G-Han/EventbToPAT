@@ -60,7 +60,7 @@ class EventBParser:
         return objects
 
 if __name__ == "__main__":
-    filename = "context\\2_CAR.txt"
+    filename = "context\\3_PRESS.txt"
     parser = EventBParser(filename)
     syntax_translator = SyntaxTranslator()
     contexts, machines = parser.parse_file()

@@ -181,6 +181,14 @@ class MembershipTranslation(TranslationHandler):
         left = stack.pop()
         if right == "ℕ":
             result = f"({left} >= 0)"
+        elif right == "ℕ1":
+            result = f"({left} > 0)"
+
+        elif right == "ℤ":
+            result = "true" # IDK how to represent integers in PAT, so just return true for now
+
+        elif right == "BOOL":
+            result = f"({left} == true || {left} == false)"
         else:
             raise ValueError(f"Unsupported set for membership: {right}")
         return result
