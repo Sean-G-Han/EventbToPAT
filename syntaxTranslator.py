@@ -22,78 +22,76 @@ class Token:
 
 @dataclass(frozen=True)
 class SymbolInfo:
-    translation: str | None
     precedence: int
-    arity: int = 2
-
+    
 class SymbolSet:
     OPERATORS: ClassVar[Dict[str, SymbolInfo]] = {
         # Assignment (lowest binding in machine expressions)
-        "≔": SymbolInfo(None, 1, 2),
+        "≔": SymbolInfo(1),
 
         # Quantifiers
-        "∀": SymbolInfo(None, 2, 2),
-        "∃": SymbolInfo(None, 2, 2),
-        "∃!": SymbolInfo(None, 2, 2),
-        "∄": SymbolInfo(None, 2, 2),
+        "∀": SymbolInfo(2),
+        "∃": SymbolInfo(2),
+        "∃!": SymbolInfo(2),
+        "∄": SymbolInfo(2),
 
         # Implication
-        "⇒": SymbolInfo(None, 3, 2),
+        "⇒": SymbolInfo(3),
 
         # Logical OR
-        "∨": SymbolInfo(None, 4, 2),
+        "∨": SymbolInfo(4),
 
         # Logical AND
-        "∧": SymbolInfo(None, 5, 2),
+        "∧": SymbolInfo(5),
 
         # Relations
-        "=": SymbolInfo(None, 6, 2),
-        "≠": SymbolInfo(None, 6, 2),
-        "<": SymbolInfo(None, 6, 2),
-        ">": SymbolInfo(None, 6, 2),
-        "≤": SymbolInfo(None, 6, 2),
-        "≥": SymbolInfo(None, 6, 2),
-        "∈": SymbolInfo(None, 6, 2),
-        "∉": SymbolInfo(None, 6, 2),
-        "⊆": SymbolInfo(None, 6, 2),
-        "⊂": SymbolInfo(None, 6, 2),
-        "⊇": SymbolInfo(None, 6, 2),
-        "⊃": SymbolInfo(None, 6, 2),
+        "=": SymbolInfo(6),
+        "≠": SymbolInfo(6),
+        "<": SymbolInfo(6),
+        ">": SymbolInfo(6),
+        "≤": SymbolInfo(6),
+        "≥": SymbolInfo(6),
+        "∈": SymbolInfo(6),
+        "∉": SymbolInfo(6),
+        "⊆": SymbolInfo(6),
+        "⊂": SymbolInfo(6),
+        "⊇": SymbolInfo(6),
+        "⊃": SymbolInfo(6),
 
         # Set operators
-        "∪": SymbolInfo(None, 7, 2),
-        "∩": SymbolInfo(None, 7, 2),
-        "∖": SymbolInfo(None, 7, 2),
+        "∪": SymbolInfo(7),
+        "∩": SymbolInfo(7),
+        "∖": SymbolInfo(7),
 
         # Range
-        "‥": SymbolInfo(None, 8, 2),
+        "‥": SymbolInfo(8),
 
         # Additive
-        "+": SymbolInfo(None, 9, 2),
-        "-": SymbolInfo(None, 9, 2),
-        "−": SymbolInfo(None, 9, 2),
+        "+": SymbolInfo(9),
+        "-": SymbolInfo(9),
+        "−": SymbolInfo(9),
 
         # Multiplicative
-        "*": SymbolInfo(None, 10, 2),
-        "/": SymbolInfo(None, 10, 2),
-        "mod": SymbolInfo(None, 10, 2),
-        "·": SymbolInfo(None, 10, 2),
+        "*": SymbolInfo(10),
+        "/": SymbolInfo(10),
+        "mod": SymbolInfo(10),
+        "·": SymbolInfo(10),
 
         # Unary NOT (highest among logical)
-        "¬": SymbolInfo(None, 11, 1),
+        "¬": SymbolInfo(11),
 
         # Parentheses / structural
-        "(": SymbolInfo(None, 0, 0),
-        ")": SymbolInfo(None, 0, 0),
-        "{": SymbolInfo(None, 0, 0),
-        "}": SymbolInfo(None, 0, 0),
-        "[": SymbolInfo(None, 0, 0),
-        "]": SymbolInfo(None, 0, 0),
-        ",": SymbolInfo(None, 0, 0),
+        "(": SymbolInfo(0),
+        ")": SymbolInfo(0),
+        "{": SymbolInfo(0),
+        "}": SymbolInfo(0),
+        "[": SymbolInfo(0),
+        "]": SymbolInfo(0),
+        ",": SymbolInfo(0),
     }
 
     def precedence(self, op: str) -> int:
-        return self.OPERATORS.get(op, SymbolInfo(op, -1)).precedence
+        return self.OPERATORS.get(op, SymbolInfo(-1)).precedence
 
     def is_operator(self, s: str) -> bool:
         return s in self.OPERATORS
@@ -169,7 +167,7 @@ class SyntaxTranslator:
         stack: List[str] = []
 
         handlers: Dict[str, TranslationHandler] = {
-            "partition": PartitionTranslation(),
+            "partition": PartitionTranslation(), # Do one for parity. parity is both a term and a function it seems...
             "=": EqualityTranslation(),
             ">": GreaterTranslation(),
             "<": LessTranslation(),
@@ -186,8 +184,10 @@ class SyntaxTranslator:
             "¬": NotTranslation(),
             "∈": MembershipTranslation(),
         }
-        
+
+        print(f"Translating expression: {expr}")        
         for token in postfix_tokens:
+            print(f"     Processing token: {token}, Stack before processing: {stack}")
             if token.type == TokenType.TERM:
                 value = token.value if token.value not in ("TRUE", "FALSE") else token.value.lower()
                 stack.append(value)
@@ -201,4 +201,5 @@ class SyntaxTranslator:
                     raise ValueError(f"No translation handler for operator/function: {token.value}")
         if len(stack) != 1:
             raise ValueError("Invalid expression, stack should have exactly one element at the end of translation.")
+        print(f"Final translated expression: {stack[0].replace("\n", " [EOL] ")}\n")
         return "".join(stack).strip()
