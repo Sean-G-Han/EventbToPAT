@@ -76,7 +76,7 @@ class PatGenerator:
             for axiom in ctx.axioms:
                 translated = self.translator.translate(
                     axiom.predicate,
-                    purpose=TranslationPurpose.CONTEXT
+                    context=TranslationContext.CONTEXT
                 )
                 lines.append(translated)
         return "\n".join(lines)
@@ -102,7 +102,7 @@ class PatGenerator:
                 for action in event.then:
                     translated = self.translator.translate(
                         action.assignment,
-                        purpose=TranslationPurpose.MACHINE_VAR
+                        context=TranslationContext.MACHINE_VAR
                     )
                     lines.append(translated)
 
@@ -116,7 +116,7 @@ class PatGenerator:
             guards = [
                 self.translator.translate(
                     g.predicate,
-                    purpose=TranslationPurpose.MACHINE_CONDITION
+                    context=TranslationContext.MACHINE_CONDITION
                 )
                 for g in event.where
             ]
@@ -124,7 +124,7 @@ class PatGenerator:
             actions = [
                 self.translator.translate(
                     a.assignment,
-                    purpose=TranslationPurpose.MACHINE_ACTION_THEN
+                    context=TranslationContext.MACHINE_ACTION_THEN
                 )
                 for a in event.then
             ]
@@ -147,7 +147,7 @@ class PatGenerator:
         for invariant in machine.invariants:
             translated = self.translator.translate(
                 invariant.predicate,
-                purpose=TranslationPurpose.MACHINE_CONDITION
+                context=TranslationContext.MACHINE_CONDITION
             )
 
             count = PatGlobal.increment_define_count()
@@ -166,3 +166,4 @@ if __name__ == "__main__":
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(pat_code)
     print(f"Generated PAT model written to {output_file}")
+    PatGlobal.print_globals()

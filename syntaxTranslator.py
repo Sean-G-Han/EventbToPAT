@@ -1,24 +1,8 @@
 from dataclasses import dataclass
 from typing import ClassVar, Dict, List
-from enum import Enum, auto
 from symbolTranslator import *
+from components import Token, TokenType
 import re
-
-class TokenType(Enum):
-    OPERATOR = auto()
-    OPENING_BRACKET = auto()
-    CLOSING_BRACKET = auto()
-    FUNCTION = auto()
-    TERM = auto()
-    COMMA = auto()
-
-@dataclass(frozen=True)
-class Token:
-    type: TokenType
-    value: str
-
-    def __str__(self):
-        return f"Type: {self.type}, Value: {self.value}"
 
 @dataclass(frozen=True)
 class SymbolInfo:
@@ -57,6 +41,8 @@ class SymbolSet:
         "⊂": SymbolInfo(6),
         "⊇": SymbolInfo(6),
         "⊃": SymbolInfo(6),
+
+        "→" : SymbolInfo(6.5),  # Function type, treated as relation for precedence
 
         # Set operators
         "∪": SymbolInfo(7),
@@ -125,7 +111,7 @@ class SyntaxTranslator:
                 elif token not in "][]}{":
                     classified.append(Token(TokenType.OPERATOR, token))
 
-            elif (i + 1 < len(tokens) and tokens[i + 1] == "("): # must add certain specialised strings like parity, card, etc. here as well
+            elif (i + 1 < len(tokens) and tokens[i + 1] == "("):
                 classified.append(Token(TokenType.FUNCTION, token))                
 
             else:
@@ -161,13 +147,13 @@ class SyntaxTranslator:
             output.append(stack.pop())
         return output
     
-    def translate(self, expr: str, purpose: TranslationPurpose = None) -> str:
+    def translate(self, expr: str, context: TranslationContext = None) -> str:
         tokens = self.classify_tokens(expr)
         postfix_tokens = self.to_postfix(tokens)
-        stack: List[str] = []
+        stack: List[Token] = []
 
         handlers: Dict[str, TranslationHandler] = {
-            "partition": PartitionTranslation(), # Do one for parity. parity is both a term and a function it seems...
+            "partition": PartitionTranslation(),
             "=": EqualityTranslation(),
             ">": GreaterTranslation(),
             "<": LessTranslation(),
@@ -183,23 +169,28 @@ class SyntaxTranslator:
             "∨": OrTranslation(),
             "¬": NotTranslation(),
             "∈": MembershipTranslation(),
+            "→": FunctionTypeTranslation(),
         }
 
         print(f"Translating expression: {expr}")        
         for token in postfix_tokens:
-            print(f"     Processing token: {token}, Stack before processing: {stack}")
+            stack_values = [t.value for t in stack]
+            print(f"     Processing token: {token}, Stack before processing: {stack_values}")
             if token.type == TokenType.TERM:
                 value = token.value if token.value not in ("TRUE", "FALSE") else token.value.lower()
-                stack.append(value)
+                stack.append(Token(TokenType.TRANSLATED, value))
 
             elif token.type in (TokenType.OPERATOR, TokenType.FUNCTION):
                 handler = handlers.get(token.value)
                 if handler:
-                    result = handler.translate(stack, purpose)
-                    stack.append(result)
+                    handler.translate(stack, context)
                 else:
                     raise ValueError(f"No translation handler for operator/function: {token.value}")
         if len(stack) != 1:
             raise ValueError("Invalid expression, stack should have exactly one element at the end of translation.")
-        print(f"Final translated expression: {stack[0].replace("\n", " [EOL] ")}\n")
-        return "".join(stack).strip()
+        if stack[0].type != TokenType.TRANSLATED:
+            raise ValueError("Invalid expression, final token should be of type TRANSLATED.")
+        
+        translation = stack[0].value
+        print(f"Final translated expression: {translation.replace("\n", " [EOL] ")}\n")
+        return "".join(translation).strip()

@@ -1,5 +1,26 @@
 from dataclasses import dataclass
 from typing import List, Dict, Any, ClassVar, Set
+from enum import Enum, auto
+
+class TokenType(Enum):
+    OPERATOR = auto()
+    OPENING_BRACKET = auto()
+    CLOSING_BRACKET = auto()
+    FUNCTION = auto()
+    TERM = auto()
+    COMMA = auto()
+    # Not sure if we need these
+    TRANSLATED = auto()
+    FUNCTION_TYPE = auto()
+    FUNCTION_CALL = auto()
+
+@dataclass(frozen=True)
+class Token:
+    type: TokenType
+    value: str
+
+    def __str__(self):
+        return f"Type: {self.type}, Value: {self.value}"
 
 @dataclass(frozen=True, slots=True)
 class EventBAxiom:
@@ -165,12 +186,23 @@ class EventBMachine:
             "\n".join(str(ev) for ev in self.events)
         )
 
+@dataclass(frozen=True, slots=True) 
+class CustomFunctionInfo:
+    name: str
+    dependencies: Set["CustomFunctionInfo"] 
+    definition: str
+
 @dataclass(frozen=True, slots=True)
 class PatGlobal:
+    """
+    This class serves as a global registry for enums, variables, defines, and custom functions that are encountered during the translation process.
+    Not sure if this will be the best way to handle this, but it allows us to keep track of these elements and ensure that they are defined in the generated code as needed.
+    """
     defineCount: ClassVar[int] = 0
-    enums: ClassVar[Set[str]] = set()
+    enums: ClassVar[Dict[str, Set[str]]] = {} # functions as mathematical sets
     variables: ClassVar[Set[str]] = set()
     defines: ClassVar[Set[str]] = set()
+    customFunctions: ClassVar[Dict[str, CustomFunctionInfo]] = {}
 
     @classmethod
     def increment_define_count(cls) -> int:
@@ -178,8 +210,8 @@ class PatGlobal:
         return cls.defineCount
     
     @classmethod
-    def add_enum(cls, enum_name: str) -> None:
-        cls.enums.add(enum_name)
+    def add_enum(cls, enum_name: str, elements :List[str]) -> None:
+        cls.enums[enum_name] = set(elements)
 
     @classmethod
     def has_enum(cls, enum_name: str) -> bool:
@@ -206,3 +238,11 @@ class PatGlobal:
         print(f"Enums: {cls.enums}")
         print(f"Variables: {cls.variables}")
         print(f"Defines: {cls.defines}")
+
+    @classmethod
+    def add_custom_function(cls, func_info: CustomFunctionInfo) -> None:
+        cls.customFunctions[func_info.name] = func_info
+    
+    @classmethod
+    def is_custom_function(cls, func_name: str) -> bool:
+        return func_name in cls.customFunctions
