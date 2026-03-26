@@ -1,26 +1,88 @@
 from dataclasses import dataclass
-from typing import List, Dict, Any, ClassVar, Set
-from enum import Enum, auto
+from typing import List, Dict, Any, ClassVar, Set, Tuple
+from typing import List, Union
 
-class TokenType(Enum):
-    OPERATOR = auto()
-    OPENING_BRACKET = auto()
-    CLOSING_BRACKET = auto()
-    FUNCTION = auto()
-    TERM = auto()
-    COMMA = auto()
-    # Not sure if we need these
-    TRANSLATED = auto()
-    FUNCTION_TYPE = auto()
-    FUNCTION_CALL = auto()
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Token:
-    type: TokenType
+    pass
+
+@dataclass(frozen=True, slots=True)
+class OperatorToken(Token):
     value: str
 
-    def __str__(self):
-        return f"Type: {self.type}, Value: {self.value}"
+@dataclass(frozen=True, slots=True)
+class OpeningRoundBracketToken(Token): # No need value as they are only used for parsing and translation, not for final output
+    pass
+
+@dataclass(frozen=True, slots=True)
+class ClosingRoundBracketToken(Token):
+    pass
+
+@dataclass(frozen=True, slots=True)
+class OpeningSquigglyBracketToken(Token):
+    pass
+
+@dataclass(frozen=True, slots=True)
+class ClosingSquigglyBracketToken(Token):
+    pass
+
+@dataclass(frozen=True, slots=True)
+class TermToken(Token):
+    value: str
+
+@dataclass(frozen=True, slots=True)
+class SetToken(Token):
+    value: List[Union[TermToken, "SetToken"]]
+
+    def flatten_with_level(self, current_level: int = 1) -> List[Tuple["TermToken", int]]:
+        result: List[Tuple["TermToken", int]] = []
+        for item in self.value:
+            if isinstance(item, TermToken):
+                result.append((item, current_level))
+            elif isinstance(item, SetToken):
+                result.extend(item.flatten_with_level(current_level + 1))
+            else:
+                raise TypeError(f"Invalid item in SetToken: {item}")
+        return result
+
+@dataclass(frozen=True, slots=True)
+class CommaToken(Token):
+    pass
+
+@dataclass(frozen=True, slots=True)
+class TranslatedToken(Token):
+    value: str
+
+@dataclass(frozen=True, slots=True)
+class FunctionTypeToken(Token):
+    return_type: str
+    parameters: List[str]
+
+@dataclass(frozen=True, slots=True)
+class FunctionToken(Token):
+    value: str
+    functionType: FunctionTypeToken
+    logic: any # Not decided yet... (Please help)
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionCallToken(Token):
+    value: str
+
+TokenT = Union[
+    OperatorToken,
+    OpeningRoundBracketToken,
+    ClosingRoundBracketToken,
+    OpeningSquigglyBracketToken,
+    ClosingSquigglyBracketToken,
+    FunctionToken,
+    TermToken,
+    SetToken,
+    CommaToken,
+    TranslatedToken,
+    FunctionTypeToken,
+    FunctionCallToken,
+]
 
 @dataclass(frozen=True, slots=True)
 class EventBAxiom:
@@ -186,11 +248,17 @@ class EventBMachine:
             "\n".join(str(ev) for ev in self.events)
         )
 
+@dataclass(frozen=True, slots=True)
+class CustomParameterInfo:
+    name: str
+    type: str
+
 @dataclass(frozen=True, slots=True) 
 class CustomFunctionInfo:
-    name: str
-    dependencies: Set["CustomFunctionInfo"] 
-    definition: str
+    function_name: str
+    parameters: Set[CustomParameterInfo]
+    return_type: str
+    logic: any
 
 @dataclass(frozen=True, slots=True)
 class PatGlobal:
@@ -198,16 +266,22 @@ class PatGlobal:
     This class serves as a global registry for enums, variables, defines, and custom functions that are encountered during the translation process.
     Not sure if this will be the best way to handle this, but it allows us to keep track of these elements and ensure that they are defined in the generated code as needed.
     """
-    defineCount: ClassVar[int] = 0
+    assertCount: ClassVar[int] = 0
+    paramCount: ClassVar[int] = 0
     enums: ClassVar[Dict[str, Set[str]]] = {} # functions as mathematical sets
     variables: ClassVar[Set[str]] = set()
     defines: ClassVar[Set[str]] = set()
     customFunctions: ClassVar[Dict[str, CustomFunctionInfo]] = {}
 
     @classmethod
-    def increment_define_count(cls) -> int:
-        cls.defineCount += 1
-        return cls.defineCount
+    def increment_assert_count(cls) -> int:
+        cls.assertCount += 1
+        return cls.assertCount
+    
+    @classmethod
+    def increment_parameter_count(cls) -> int:
+        cls.paramCount += 1
+        return cls.paramCount
     
     @classmethod
     def add_enum(cls, enum_name: str, elements :List[str]) -> None:
@@ -241,7 +315,7 @@ class PatGlobal:
 
     @classmethod
     def add_custom_function(cls, func_info: CustomFunctionInfo) -> None:
-        cls.customFunctions[func_info.name] = func_info
+        cls.customFunctions[func_info.function_name] = func_info
     
     @classmethod
     def is_custom_function(cls, func_name: str) -> bool:

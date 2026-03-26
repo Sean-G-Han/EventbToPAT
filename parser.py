@@ -145,18 +145,21 @@ class PatGenerator:
     def _generate_invariants(self, machine: EventBMachine) -> str:
         lines = []
         for invariant in machine.invariants:
+            invariant_name = invariant.name
+            if invariant_name == "":
+                invariant_name = f"INV{PatGlobal.increment_assert_count()}"
+
             translated = self.translator.translate(
                 invariant.predicate,
                 context=TranslationContext.MACHINE_CONDITION
             )
 
-            count = PatGlobal.increment_define_count()
-            lines.append(f"#define INVARIANT{count} {translated};")
-            lines.append(f"#assert P() |= []INVARIANT{count};")
+            lines.append(f"#define {invariant_name} {translated};")
+            lines.append(f"#assert P() |= []{invariant_name};")
         return "\n".join(lines)
 
 if __name__ == "__main__":
-    input_file = "context\\2_CAR.txt"
+    input_file = "context\\3_PRESS.txt"
     output_file = "output.txt"
     parser = EventBParser(input_file)
     translator = SyntaxTranslator()

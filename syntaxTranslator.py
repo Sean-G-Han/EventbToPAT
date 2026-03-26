@@ -1,8 +1,15 @@
 from dataclasses import dataclass
 from typing import ClassVar, Dict, List
 from symbolTranslator import *
-from components import Token, TokenType
+from components import *
 import re
+import logging
+logging.basicConfig(
+    filename="log.txt",
+    filemode="a",
+    level=logging.DEBUG,
+    format="%(asctime)s - %(message)s",
+)
 
 @dataclass(frozen=True)
 class SymbolInfo:
@@ -96,53 +103,69 @@ class SyntaxTranslator:
     def __init__(self):
         self.TOKEN_PATTERN = self.sym_set.generate_regex_pattern()
 
-    def classify_tokens(self, expr: str) -> List[Token]:
+    def classify_tokens(self, expr: str) -> List[TokenT]:
         reg_pattern = self.TOKEN_PATTERN.split(expr)
         tokens =  [t.strip() for t in reg_pattern if t.strip()]
         classified = []
         for i, token in enumerate(tokens):
             if self.sym_set.is_operator(token):
                 if token == ",":
-                    classified.append(Token(TokenType.COMMA, token))
+                    classified.append(CommaToken())
                 elif token == "(":
-                    classified.append(Token(TokenType.OPENING_BRACKET, token))
+                    classified.append(OpeningRoundBracketToken())
                 elif token == ")":
-                    classified.append(Token(TokenType.CLOSING_BRACKET, token))
-                elif token not in "][]}{":
-                    classified.append(Token(TokenType.OPERATOR, token))
+                    classified.append(ClosingRoundBracketToken())
+                elif token == "{":
+                    classified.append(OpeningSquigglyBracketToken())
+                elif token == "}":
+                    classified.append(ClosingSquigglyBracketToken())
+                elif token not in "][]":
+                    classified.append(OperatorToken(token))
 
             elif (i + 1 < len(tokens) and tokens[i + 1] == "("):
-                classified.append(Token(TokenType.FUNCTION, token))                
+                classified.append(FunctionCallToken(token))   
 
             else:
-                classified.append(Token(TokenType.TERM, token))
+                classified.append(TermToken(token))
 
         return classified   
 
-    def to_postfix(self, tokens: List[Token]) -> List[Token]:
-        output: List[Token] = []
-        stack: List[Token] = []
+    def to_postfix(self, tokens: List[TokenT]) -> List[TokenT]:
+        output: List[TokenT] = []
+        stack: List[TokenT] = []
 
         for token in tokens:
-            match token.type:
-                case TokenType.TERM:
+            match token:
+                case TermToken():
                     output.append(token)
-                case TokenType.FUNCTION:
+                case FunctionCallToken():
                     stack.append(token)
-                case TokenType.OPERATOR:
-                    while (stack and stack[-1].type == TokenType.OPERATOR 
+                case OperatorToken():
+                    while (stack and isinstance(stack[-1], OperatorToken)
                            and self.sym_set.precedence(stack[-1].value) >= self.sym_set.precedence(token.value)):
                         output.append(stack.pop())
                     stack.append(token)
-                case TokenType.OPENING_BRACKET:
+                case OpeningRoundBracketToken(): # We can use similar logic for curvy brackets for sets, but we will ignore for now
                     stack.append(token)
-                case TokenType.CLOSING_BRACKET:
-                    while stack and stack[-1].type != TokenType.OPENING_BRACKET:
+                case ClosingRoundBracketToken():
+                    while stack and isinstance(stack[-1], OpeningRoundBracketToken) == False:
                         output.append(stack.pop())
-                    if stack and stack[-1].type == TokenType.OPENING_BRACKET:
+                    if stack and isinstance(stack[-1], OpeningRoundBracketToken):
                         stack.pop()
-                    if stack and stack[-1].type == TokenType.FUNCTION:
+                    if stack and isinstance(stack[-1], FunctionCallToken):
                         output.append(stack.pop())
+                case OpeningSquigglyBracketToken():
+                    output.append(OpeningSquigglyBracketToken()) # We will fill the set token later
+                case ClosingSquigglyBracketToken():
+                    set_elements: List[Union[TermToken, SetToken]] = []
+                    while output and isinstance(output[-1], OpeningSquigglyBracketToken) == False:
+                        set_elements.append(output.pop())
+                    if output and isinstance(output[-1], OpeningSquigglyBracketToken):
+                        output.pop()
+                    output.append(SetToken(list(reversed(set_elements))))
+                case CommaToken():
+                    pass
+
         while stack:
             output.append(stack.pop())
         return output
@@ -150,7 +173,7 @@ class SyntaxTranslator:
     def translate(self, expr: str, context: TranslationContext = None) -> str:
         tokens = self.classify_tokens(expr)
         postfix_tokens = self.to_postfix(tokens)
-        stack: List[Token] = []
+        stack: List[TokenT] = []
 
         handlers: Dict[str, TranslationHandler] = {
             "partition": PartitionTranslation(),
@@ -162,7 +185,7 @@ class SyntaxTranslator:
             "≔": AssignmentTranslation(),
             "+": PlusTranslation(),
             "−": MinusTranslation(),
-            "/": DivideTranslation(),
+            "÷": DivideTranslation(),
             "*": MultiplyTranslation(),
             "⇒": ImplicationTranslation(),
             "∧": AndTranslation(),
@@ -172,25 +195,29 @@ class SyntaxTranslator:
             "→": FunctionTypeTranslation(),
         }
 
-        print(f"Translating expression: {expr}")        
+        logging.debug(f"Translating expression: {expr}")
         for token in postfix_tokens:
             stack_values = [t.value for t in stack]
-            print(f"     Processing token: {token}, Stack before processing: {stack_values}")
-            if token.type == TokenType.TERM:
+            logging.debug(f"     Processing token: {token}, Stack before processing: {stack_values}")
+            if isinstance(token, TermToken):
                 value = token.value if token.value not in ("TRUE", "FALSE") else token.value.lower()
-                stack.append(Token(TokenType.TRANSLATED, value))
+                stack.append(TranslatedToken(value))
 
-            elif token.type in (TokenType.OPERATOR, TokenType.FUNCTION):
+            elif isinstance(token, FunctionCallToken) or isinstance(token, OperatorToken):
                 handler = handlers.get(token.value)
                 if handler:
                     handler.translate(stack, context)
                 else:
                     raise ValueError(f"No translation handler for operator/function: {token.value}")
+            
+            else:
+                stack.append(token)
+                
         if len(stack) != 1:
             raise ValueError("Invalid expression, stack should have exactly one element at the end of translation.")
-        if stack[0].type != TokenType.TRANSLATED:
+        if not isinstance(stack[0], TranslatedToken):
             raise ValueError("Invalid expression, final token should be of type TRANSLATED.")
         
         translation = stack[0].value
-        print(f"Final translated expression: {translation.replace("\n", " [EOL] ")}\n")
+        logging.debug(f"Final translated expression: {translation.replace(chr(10), ' [EOL] ')}")
         return "".join(translation).strip()

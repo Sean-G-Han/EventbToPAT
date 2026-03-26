@@ -1,12 +1,7 @@
 from enum import Enum, auto
 from typing import List
-from components import PatGlobal, Token, TokenType
+from components import *
 import operator
-
-
-# ==========================================================
-# Utility
-# ==========================================================
 
 def try_eval_binary(left: str, right: str, op):
     try:
@@ -30,34 +25,48 @@ class TranslationHandler:
     def translate(self, stack: List[str], context: TranslationContext) -> str:
         raise NotImplementedError
 
-def pop_value(stack: List[Token]) -> str|Token:
+def pop_value(stack: List[TokenT]) -> str|TokenT:
     token = stack.pop()
-    if token.type == TokenType.TRANSLATED:
+    if isinstance(token, TranslatedToken):
         return token.value
     return token # for more complicated stuff
 
 
-def push_translated(stack: List[Token], value):
-    stack.append(Token(TokenType.TRANSLATED, value))
+def push_translated(stack: List[TokenT], value):
+    stack.append(TranslatedToken(value))
 
 class PartitionTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         if context != TranslationContext.CONTEXT:
             raise ValueError("Partition only valid in CONTEXT")
-        elements = []
-
+        
+        elements: List[str] = []
+        
         while len(stack) > 1:
-            elements.append(pop_value(stack))
+            top = stack.pop()
+            
+            if isinstance(top, SetToken):
+                flattened_with_levels = top.flatten_with_level()
+                for term, level in flattened_with_levels:
+                    if level != 1:
+                        raise ValueError("Nested sets not supported in partition")
+                    elements.append(term.value)
+            else:
+                term = pop_value([top])
+                elements.append(term)
 
         elements.reverse()
         enum_name = pop_value(stack)
-        PatGlobal.add_enum(enum_name, elements)
+        
+        if not isinstance(enum_name, str):
+            raise ValueError("Expected enum name to be a string (TranslatedToken value)")
 
+        PatGlobal.add_enum(enum_name, elements)
         result = f"enum {{{','.join(elements)}}};\n"
         push_translated(stack, result)
 
 class AssignmentTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         value = pop_value(stack)
         name = pop_value(stack)
 
@@ -77,7 +86,7 @@ class AssignmentTranslation(TranslationHandler):
         raise ValueError("Invalid context for assignment")
 
 class EqualityTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
@@ -90,7 +99,7 @@ class EqualityTranslation(TranslationHandler):
 
         raise ValueError("Invalid context for equality")
 
-def comparison_handler(stack: List[Token], context, symbol):
+def comparison_handler(stack: List[TokenT], context, symbol):
     right = pop_value(stack)
     left = pop_value(stack)
 
@@ -100,12 +109,12 @@ def comparison_handler(stack: List[Token], context, symbol):
 
     if context == TranslationContext.CONTEXT:
 
-        count = PatGlobal.increment_define_count()
+        count = PatGlobal.increment_assert_count()
 
         result = (
             f"#define {left} 0;// Please change the value here\n"
-            f"#define INVARIANT{count} {left} {symbol} {right};\n"
-            f"#assert P() |= []INVARIANT{count};\n"
+            f"#define INV{count} {left} {symbol} {right};\n"
+            f"#assert P() |= []INV{count};\n"
         )
 
         push_translated(stack, result)
@@ -114,24 +123,24 @@ def comparison_handler(stack: List[Token], context, symbol):
     raise ValueError("Invalid context for comparison operator")
 
 class GreaterTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         comparison_handler(stack, context, ">")
 
 class LessTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         comparison_handler(stack, context, "<")
 
 class GreaterEqualTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         comparison_handler(stack, context, ">=")
 
 class LessEqualTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         comparison_handler(stack, context, "<=")
 
 class PlusTranslation(TranslationHandler):
 
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
 
         right = pop_value(stack)
         left = pop_value(stack)
@@ -143,7 +152,7 @@ class PlusTranslation(TranslationHandler):
         push_translated(stack, result)
 
 class MinusTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
@@ -153,7 +162,7 @@ class MinusTranslation(TranslationHandler):
         push_translated(stack, result)
 
 class MultiplyTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
@@ -163,7 +172,7 @@ class MultiplyTranslation(TranslationHandler):
         push_translated(stack, result)
 
 class DivideTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
@@ -173,7 +182,7 @@ class DivideTranslation(TranslationHandler):
         push_translated(stack, result)
 
 class ImplicationTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
@@ -182,27 +191,27 @@ class ImplicationTranslation(TranslationHandler):
         push_translated(stack, result)
 
 class OrTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
         push_translated(stack, f"({left} || {right})")
 
 class AndTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
         push_translated(stack, f"({left} && {right})")
 
 class NotTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         operand = pop_value(stack)
 
         push_translated(stack, f"!({operand})")
 
 class MembershipTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
 
@@ -214,14 +223,15 @@ class MembershipTranslation(TranslationHandler):
             result = "true"
         elif right == "BOOL":
             result = f"({left} == true || {left} == false)"
+        elif right is TokenT and isinstance(right, FunctionTypeToken):
+            PatGlobal.add_custom_function(left, set(), "")
+            pass # Not yet implemented
         else:
             raise ValueError(f"Unsupported set for membership: {right}")
         push_translated(stack, result)
 
 class FunctionTypeTranslation(TranslationHandler):
-    def translate(self, stack: List[Token], context: TranslationContext) -> None:
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
-
-        result = f"({left} -> {right})"
-        stack.append(Token(TokenType.FUNCTION_TYPE, result))
+        stack.append(FunctionTypeToken(return_type=right, parameters=[left]))
