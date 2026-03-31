@@ -215,9 +215,9 @@ class SyntaxTranslator:
                 
         if len(stack) != 1:
             raise ValueError("Invalid expression, stack should have exactly one element at the end of translation.")
-        if not isinstance(stack[0], TranslatedToken):
+        if not isinstance(stack[0], TranslatableToken):
             raise ValueError("Invalid expression, final token should be of type TRANSLATED.")
         
-        translation = stack[0].value
+        translation = stack[0].get_translation()
         logging.debug(f"Final translated expression: {translation.replace(chr(10), ' [EOL] ')}")
         return "".join(translation).strip()

@@ -31,8 +31,31 @@ class TermToken(Token):
     value: str
 
 @dataclass(frozen=True, slots=True)
-class SetToken(Token):
+class CommaToken(Token):
+    pass
+
+@dataclass(frozen=True, slots=True)
+class TranslatableToken(Token):
+    value: str
+
+    def get_translation(self) -> str:
+        raise NotImplementedError("This method should be implemented by subclasses of TranslatableToken")
+
+@dataclass(frozen=True, slots=True)
+class TranslatedToken(TranslatableToken):
+    value: str
+
+    def get_translation(self) -> str:
+        return self.value
+
+@dataclass(frozen=True, slots=True)
+class SetToken(TranslatableToken):
     value: List[Union[TermToken, "SetToken"]]
+    name: str = ""
+
+    def __post_init__(self):
+        PatGlobal.add_enum([term.value for term, _ in self.flatten_with_level()])
+        PatGlobal.add_set(self.name)
 
     def flatten_with_level(self, current_level: int = 1) -> List[Tuple["TermToken", int]]:
         result: List[Tuple["TermToken", int]] = []
@@ -44,14 +67,19 @@ class SetToken(Token):
             else:
                 raise TypeError(f"Invalid item in SetToken: {item}")
         return result
+    
+    def get_translation(self) -> str:
+        flattened = self.flatten_with_level()
 
-@dataclass(frozen=True, slots=True)
-class CommaToken(Token):
-    pass
+        seen = {}
+        for term, _ in flattened:
+            if term.value not in seen:
+                seen[term.value] = len(seen)
 
-@dataclass(frozen=True, slots=True)
-class TranslatedToken(Token):
-    value: str
+        enum_names = list(seen.keys())
+
+        mask_expr = " | ".join(f"{name}_BIT" for name in enum_names)
+        return f"var {self.name} = {mask_expr};"
 
 @dataclass(frozen=True, slots=True)
 class FunctionTypeToken(Token):
@@ -249,29 +277,15 @@ class EventBMachine:
         )
 
 @dataclass(frozen=True, slots=True)
-class CustomParameterInfo:
-    name: str
-    type: str
-
-@dataclass(frozen=True, slots=True) 
-class CustomFunctionInfo:
-    function_name: str
-    parameters: Set[CustomParameterInfo]
-    return_type: str
-    logic: any
-
-@dataclass(frozen=True, slots=True)
 class PatGlobal:
     """
     This class serves as a global registry for enums, variables, defines, and custom functions that are encountered during the translation process.
     Not sure if this will be the best way to handle this, but it allows us to keep track of these elements and ensure that they are defined in the generated code as needed.
     """
     assertCount: ClassVar[int] = 0
-    paramCount: ClassVar[int] = 0
-    enums: ClassVar[Dict[str, Set[str]]] = {} # functions as mathematical sets
+    enums: ClassVar[Set[str]] = set() # A global enum is used as enum {blue, red}; enume {yellow, green}; red == green when it really shouldnt
+    sets: ClassVar[Set[str]] = set() # so we know which terms are sets and not just normal terms
     variables: ClassVar[Set[str]] = set()
-    defines: ClassVar[Set[str]] = set()
-    customFunctions: ClassVar[Dict[str, CustomFunctionInfo]] = {}
 
     @classmethod
     def increment_assert_count(cls) -> int:
@@ -279,44 +293,22 @@ class PatGlobal:
         return cls.assertCount
     
     @classmethod
-    def increment_parameter_count(cls) -> int:
-        cls.paramCount += 1
-        return cls.paramCount
-    
-    @classmethod
-    def add_enum(cls, enum_name: str, elements :List[str]) -> None:
-        cls.enums[enum_name] = set(elements)
-
-    @classmethod
-    def has_enum(cls, enum_name: str) -> bool:
-        return enum_name in cls.enums
+    def add_enum(cls, elements :List[str]) -> None:
+        for element in elements:
+            cls.enums.add(element)
 
     @classmethod
     def add_variable(cls, var_name: str) -> None:
         cls.variables.add(var_name)
-
-    @classmethod
-    def has_variable(cls, var_name: str) -> bool:
-        return var_name in cls.variables
     
     @classmethod
-    def add_define(cls, define_name: str) -> None:
-        cls.defines.add(define_name)
-    
-    @classmethod
-    def has_define(cls, define_name: str) -> bool:
-        return define_name in cls.defines
+    def add_set(cls, set_name: str) -> None:
+        if len(set_name) == 0:
+            return
+        cls.sets.add(set_name)
     
     @classmethod
     def print_globals(cls) -> None:
         print(f"Enums: {cls.enums}")
         print(f"Variables: {cls.variables}")
-        print(f"Defines: {cls.defines}")
-
-    @classmethod
-    def add_custom_function(cls, func_info: CustomFunctionInfo) -> None:
-        cls.customFunctions[func_info.function_name] = func_info
-    
-    @classmethod
-    def is_custom_function(cls, func_name: str) -> bool:
-        return func_name in cls.customFunctions
+        print(f"Sets: {cls.sets}")

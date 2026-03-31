@@ -33,12 +33,17 @@ def pop_value(stack: List[TokenT]) -> str|TokenT:
 
 
 def push_translated(stack: List[TokenT], value):
-    stack.append(TranslatedToken(value))
+    if isinstance(value, str):
+        stack.append(TranslatedToken(value))
+    elif isinstance(value, TranslatableToken):
+        stack.append(value)
+    else:
+        raise ValueError("Value must be either a string or a TranslatableToken")
 
 class PartitionTranslation(TranslationHandler):
     def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         if context != TranslationContext.CONTEXT:
-            raise ValueError("Partition only valid in CONTEXT")
+            raise ValueError("partition only supported in CONTEXT")
         
         elements: List[str] = []
         
@@ -55,14 +60,14 @@ class PartitionTranslation(TranslationHandler):
                 term = pop_value([top])
                 elements.append(term)
 
-        elements.reverse()
-        enum_name = pop_value(stack)
+        set_name = pop_value(stack)
         
-        if not isinstance(enum_name, str):
-            raise ValueError("Expected enum name to be a string (TranslatedToken value)")
+        if not isinstance(set_name, str):
+            raise ValueError("Expected set name to be a string (TranslatedToken value)")
 
-        PatGlobal.add_enum(enum_name, elements)
-        result = f"enum {{{','.join(elements)}}};\n"
+        PatGlobal.add_enum(elements)
+        # result = f"{set_name} = [{','.join(elements)}];\n"
+        result = SetToken(value=[TermToken(e) for e in elements], name=set_name)
         push_translated(stack, result)
 
 class AssignmentTranslation(TranslationHandler):
@@ -223,9 +228,6 @@ class MembershipTranslation(TranslationHandler):
             result = "true"
         elif right == "BOOL":
             result = f"({left} == true || {left} == false)"
-        elif right is TokenT and isinstance(right, FunctionTypeToken):
-            PatGlobal.add_custom_function(left, set(), "")
-            pass # Not yet implemented
         else:
             raise ValueError(f"Unsupported set for membership: {right}")
         push_translated(stack, result)

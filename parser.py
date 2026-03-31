@@ -159,7 +159,7 @@ class PatGenerator:
         return "\n".join(lines)
 
 if __name__ == "__main__":
-    input_file = "context\\3_PRESS.txt"
+    input_file = "context\\2_CAR.txt"
     output_file = "output.txt"
     parser = EventBParser(input_file)
     translator = SyntaxTranslator()
@@ -167,6 +167,12 @@ if __name__ == "__main__":
     contexts, machines = parser.parse_file()
     pat_code = generator.generate(contexts, machines)
     with open(output_file, "w", encoding="utf-8") as f:
+        f.write("// Generated PAT model from Event-B\n")
+        f.write(f"enum {{{",".join(list(PatGlobal.enums))}}};\n")
+        for index, term_name in enumerate(PatGlobal.enums):
+            f.write(f"#define {term_name}_BIT {1 << index};\n")
         f.write(pat_code)
     print(f"Generated PAT model written to {output_file}")
     PatGlobal.print_globals()
+
+    
