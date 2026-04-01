@@ -5,6 +5,8 @@ import operator
 
 def try_eval_binary(left: str, right: str, op):
     try:
+        if isinstance(left, TokenT) or isinstance(right, TokenT):
+            return None
         l = float(left)
         r = float(right)
         result = op(l, r)
@@ -85,6 +87,8 @@ class AssignmentTranslation(TranslationHandler):
             return
 
         if context == TranslationContext.MACHINE_ACTION_THEN:
+            if isinstance(value, FunctionCallToken):
+                value = value.to_pat_call()
             push_translated(stack, f"{name} = {value};\n")
             return
 
@@ -96,13 +100,29 @@ class EqualityTranslation(TranslationHandler):
         left = pop_value(stack)
 
         if context == TranslationContext.CONTEXT:
+            if isinstance(left, FunctionCallToken):
+                raise FunctionTranslationException(left.value.split('(')[0])
             push_translated(stack, f"#define {left} {right};\n")
             return
         if context == TranslationContext.MACHINE_CONDITION:
+            if isinstance(right, FunctionCallToken):
+                right = right.to_pat_call()
             push_translated(stack, f"{left} == {right}")
             return
 
         raise ValueError("Invalid context for equality")
+
+class NotEqualTranslation(TranslationHandler):
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
+        right = pop_value(stack)
+        left = pop_value(stack)
+
+        if context == TranslationContext.MACHINE_CONDITION:
+            if isinstance(right, FunctionCallToken):
+                right = right.to_pat_call()
+
+            push_translated(stack, f"{left} != {right}")
+            return
 
 def comparison_handler(stack: List[TokenT], context, symbol):
     right = pop_value(stack)
@@ -220,6 +240,11 @@ class MembershipTranslation(TranslationHandler):
         right = pop_value(stack)
         left = pop_value(stack)
 
+        if left not in PatGlobal.variables and left not in PatGlobal.constants:
+            stack.append(left)
+            stack.append(right)
+            raise NotImplementedError(f"Left operand of membership must be a variable or constant, got {left}")
+
         if right == "ℕ":
             result = f"({left} >= 0)"
         elif right == "ℕ1":
@@ -228,12 +253,34 @@ class MembershipTranslation(TranslationHandler):
             result = "true"
         elif right == "BOOL":
             result = f"({left} == true || {left} == false)"
+        elif isinstance(right, FunctionTypeToken):
+            raise FunctionTranslationException(left)
         else:
             raise ValueError(f"Unsupported set for membership: {right}")
         push_translated(stack, result)
 
-class FunctionTypeTranslation(TranslationHandler):
+class TypedMembershipTranslation(TranslationHandler):
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
+        right = pop_value(stack)
+        left = pop_value(stack)
+
+        result = f"var {left} = 0;  // Please change the value and type here, expected type: {right}"
+        push_translated(stack, result)
+
+class FunctionTranslation(TranslationHandler):
     def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
         right = pop_value(stack)
         left = pop_value(stack)
         stack.append(FunctionTypeToken(return_type=right, parameters=[left]))
+
+class FunctionCallTranslation(TranslationHandler):
+    def __init__(self, func_name: str = ""):
+        self.func_name = func_name
+
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
+        info = PatGlobal.functions.get(self.func_name)
+        arity = info.arity if info else -1
+        args = [pop_value(stack) for _ in range(arity)]
+        print(f"Translating function call: {self.func_name} with args {args}")
+        result = f"{self.func_name}({', '.join(reversed(args))})"
+        stack.append(FunctionCallToken(result))

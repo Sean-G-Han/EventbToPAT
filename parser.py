@@ -73,12 +73,19 @@ class PatGenerator:
     def _generate_contexts(self, contexts: List[EventBContext]) -> str:
         lines = []
         for ctx in contexts:
+            for const in ctx.constants:
+                PatGlobal.add_constant(const)
+            for set_name in ctx.sets:
+                PatGlobal.add_set(set_name)
             for axiom in ctx.axioms:
-                translated = self.translator.translate(
-                    axiom.predicate,
-                    context=TranslationContext.CONTEXT
-                )
-                lines.append(translated)
+                try:
+                    translated = self.translator.try_translate(
+                        axiom.predicate,
+                        context=TranslationContext.CONTEXT
+                    )
+                except FunctionTranslationException as e:
+                    translated = f""
+                lines.append(translated) if len(translated) > 0 else None
         return "\n".join(lines)
 
     def _generate_machines(self,machines: List[EventBMachine]) -> str:
@@ -100,7 +107,7 @@ class PatGenerator:
         for event in machine.events:
             if event.is_initialisation():
                 for action in event.then:
-                    translated = self.translator.translate(
+                    translated = self.translator.try_translate(
                         action.assignment,
                         context=TranslationContext.MACHINE_VAR
                     )
@@ -114,7 +121,7 @@ class PatGenerator:
             if event.is_initialisation():
                 continue
             guards = [
-                self.translator.translate(
+                self.translator.try_translate(
                     g.predicate,
                     context=TranslationContext.MACHINE_CONDITION
                 )
@@ -122,7 +129,7 @@ class PatGenerator:
             ]
 
             actions = [
-                self.translator.translate(
+                self.translator.try_translate(
                     a.assignment,
                     context=TranslationContext.MACHINE_ACTION_THEN
                 )
@@ -149,7 +156,7 @@ class PatGenerator:
             if invariant_name == "":
                 invariant_name = f"INV{PatGlobal.increment_assert_count()}"
 
-            translated = self.translator.translate(
+            translated = self.translator.try_translate(
                 invariant.predicate,
                 context=TranslationContext.MACHINE_CONDITION
             )
@@ -159,7 +166,7 @@ class PatGenerator:
         return "\n".join(lines)
 
 if __name__ == "__main__":
-    input_file = "context\\2_CAR.txt"
+    input_file = "context\\4_FILE_1.txt"
     output_file = "output.txt"
     parser = EventBParser(input_file)
     translator = SyntaxTranslator()
@@ -168,10 +175,18 @@ if __name__ == "__main__":
     pat_code = generator.generate(contexts, machines)
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("// Generated PAT model from Event-B\n")
-        f.write(f"enum {{{",".join(list(PatGlobal.enums))}}};\n")
+        if len(PatGlobal.functions) > 0:
+            f.write("#import \"PAT.Lib.Custom_Programs\";\n")
+        if len(PatGlobal.enums) > 0:
+            f.write(f"enum {{{",".join(list(PatGlobal.enums))}}};\n")
         for index, term_name in enumerate(PatGlobal.enums):
             f.write(f"#define {term_name}_BIT {1 << index};\n")
         f.write(pat_code)
+        f.write("\n// End of generated PAT model\n")
+        if len(PatGlobal.functions) > 0:
+            f.write(f"/*AI Prompt for custom functions\nFor the following functions, please provide write the function in C#. Preserve the parameters and behaviour. In the event that the function seem ambiguous you can assume anything as long as the math syntax is correct\n")
+            f.write(f"{PatGlobal.functions_to_string()}\n")
+            f.write(f"*/\n")
     print(f"Generated PAT model written to {output_file}")
     PatGlobal.print_globals()
 

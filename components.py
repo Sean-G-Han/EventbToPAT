@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from typing import List, Dict, Any, ClassVar, Set, Tuple
 from typing import List, Union
+import re
+
+class FunctionTranslationException(Exception):
+    pass
 
 @dataclass(frozen=True, slots=True)
 class Token:
@@ -30,6 +34,10 @@ class ClosingSquigglyBracketToken(Token):
 class TermToken(Token):
     value: str
 
+    @property
+    def is_set(self) -> bool:
+        return self.value in PatGlobal.sets
+
 @dataclass(frozen=True, slots=True)
 class CommaToken(Token):
     pass
@@ -49,13 +57,19 @@ class TranslatedToken(TranslatableToken):
         return self.value
 
 @dataclass(frozen=True, slots=True)
+class PlainTextToken(TranslatableToken):
+    value: str
+
+    def get_translation(self) -> str:
+        return self.value
+
+@dataclass(frozen=True, slots=True)
 class SetToken(TranslatableToken):
     value: List[Union[TermToken, "SetToken"]]
     name: str = ""
 
     def __post_init__(self):
         PatGlobal.add_enum([term.value for term, _ in self.flatten_with_level()])
-        PatGlobal.add_set(self.name)
 
     def flatten_with_level(self, current_level: int = 1) -> List[Tuple["TermToken", int]]:
         result: List[Tuple["TermToken", int]] = []
@@ -83,19 +97,39 @@ class SetToken(TranslatableToken):
 
 @dataclass(frozen=True, slots=True)
 class FunctionTypeToken(Token):
+    parameters: str
     return_type: str
-    parameters: List[str]
+
+    @property
+    def value(self) -> str:
+        return f"({self.parameters}) -> {self.return_type}"
 
 @dataclass(frozen=True, slots=True)
-class FunctionToken(Token):
+class FunctionDefinitionToken(TranslatableToken):
+    func_name: str
     value: str
-    functionType: FunctionTypeToken
-    logic: any # Not decided yet... (Please help)
-
 
 @dataclass(frozen=True, slots=True)
 class FunctionCallToken(Token):
     value: str
+
+    #got lazy
+    def to_pat_call(self) -> str:
+        """
+        Converts 'func(param1, param2, ...)' into 'call(func, param1, param2, ...)'.
+        """
+        # Match function name and parameters
+        print(f"Translating function call: {self.value}")
+        match = re.fullmatch(r'\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)\s*', self.value)
+        if not match:
+            raise ValueError(f"Invalid function call expression: {self.value}")
+        print(f"Matched function call: {match.groups()}")
+        
+        func_name, params = match.groups()
+        # Remove extra spaces from parameters and keep them as a list
+        params = [p.strip() for p in params.split(',')] if params.strip() else []
+        # Join parameters back for PAT call
+        return f"call({func_name}, {', '.join(params)})"
 
 TokenT = Union[
     OperatorToken,
@@ -103,7 +137,6 @@ TokenT = Union[
     ClosingRoundBracketToken,
     OpeningSquigglyBracketToken,
     ClosingSquigglyBracketToken,
-    FunctionToken,
     TermToken,
     SetToken,
     CommaToken,
@@ -282,10 +315,18 @@ class PatGlobal:
     This class serves as a global registry for enums, variables, defines, and custom functions that are encountered during the translation process.
     Not sure if this will be the best way to handle this, but it allows us to keep track of these elements and ensure that they are defined in the generated code as needed.
     """
+
+    @dataclass
+    class FunctionInfo:
+        definition: List[str]
+        arity: int
+
     assertCount: ClassVar[int] = 0
     enums: ClassVar[Set[str]] = set() # A global enum is used as enum {blue, red}; enume {yellow, green}; red == green when it really shouldnt
     sets: ClassVar[Set[str]] = set() # so we know which terms are sets and not just normal terms
+    functions: ClassVar[Dict[str, FunctionInfo]] = {}
     variables: ClassVar[Set[str]] = set()
+    constants: ClassVar[Set[str]] = set()
 
     @classmethod
     def increment_assert_count(cls) -> int:
@@ -300,15 +341,55 @@ class PatGlobal:
     @classmethod
     def add_variable(cls, var_name: str) -> None:
         cls.variables.add(var_name)
+
+    @classmethod
+    def add_constant(cls, const_name: str) -> None:
+        cls.constants.add(const_name)
     
     @classmethod
     def add_set(cls, set_name: str) -> None:
         if len(set_name) == 0:
             return
         cls.sets.add(set_name)
+
+    @classmethod
+    def add_function_definition(
+        cls,
+        func_name: str,
+        definition: str
+    ) -> None:
+
+        if func_name not in cls.functions:
+            arity = cls._extract_arity(definition)
+            cls.functions[func_name] = cls.FunctionInfo(definition=[definition], arity=arity)
+
+        info = cls.functions[func_name]
+        info.definition.append(definition)
+
+    @classmethod
+    def _extract_arity(cls, signature: str) -> int:
+        signature = signature.replace("->", "→")
+        match = re.search(r'∈\s*(.*?)\s*→', signature)
+        if not match:
+            return -1;
+
+        domain = match.group(1).strip()
+
+        parts = re.split(r'[×x]', domain)
+
+        return len([p for p in parts if p.strip()])
     
     @classmethod
     def print_globals(cls) -> None:
         print(f"Enums: {cls.enums}")
         print(f"Variables: {cls.variables}")
         print(f"Sets: {cls.sets}")
+
+    @classmethod
+    def functions_to_string(cls) -> str:
+        result = []
+        for func_name, info in cls.functions.items():
+            result.append(f"Function: {func_name} has an arity of {info.arity} where:\n")
+            for definition in info.definition:
+                result.append(f"  {definition}\n")
+        return "".join(result)

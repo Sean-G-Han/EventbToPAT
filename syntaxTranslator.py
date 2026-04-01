@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import ClassVar, Dict, List
+from typing import ClassVar, Dict, List, Literal
 from symbolTranslator import *
 from components import *
 import re
@@ -9,71 +9,71 @@ logging.basicConfig(
     filemode="a",
     level=logging.DEBUG,
     format="%(asctime)s - %(message)s",
+    encoding="utf-8"
 )
 
 @dataclass(frozen=True)
 class SymbolInfo:
     precedence: int
+    arity: int = 2
+    fixity: Literal["infix", "prefix"] = "infix"
     
 class SymbolSet:
     OPERATORS: ClassVar[Dict[str, SymbolInfo]] = {
-        # Assignment (lowest binding in machine expressions)
-        "≔": SymbolInfo(1),
+        # Assignment
+        "≔": SymbolInfo(1, 2, "infix"),
 
         # Quantifiers
-        "∀": SymbolInfo(2),
-        "∃": SymbolInfo(2),
-        "∃!": SymbolInfo(2),
-        "∄": SymbolInfo(2),
+        "∀": SymbolInfo(2, 1, "prefix"),
+        "∃": SymbolInfo(2, 1, "prefix"),
+        "∃!": SymbolInfo(2, 1, "prefix"),
+        "∄": SymbolInfo(2, 1, "prefix"),
 
         # Implication
-        "⇒": SymbolInfo(3),
+        "⇒": SymbolInfo(3, 2, "infix"),
 
         # Logical OR
-        "∨": SymbolInfo(4),
+        "∨": SymbolInfo(4, 2, "infix"),
 
         # Logical AND
-        "∧": SymbolInfo(5),
+        "∧": SymbolInfo(5, 2, "infix"),
 
         # Relations
-        "=": SymbolInfo(6),
-        "≠": SymbolInfo(6),
-        "<": SymbolInfo(6),
-        ">": SymbolInfo(6),
-        "≤": SymbolInfo(6),
-        "≥": SymbolInfo(6),
-        "∈": SymbolInfo(6),
-        "∉": SymbolInfo(6),
-        "⊆": SymbolInfo(6),
-        "⊂": SymbolInfo(6),
-        "⊇": SymbolInfo(6),
-        "⊃": SymbolInfo(6),
+        "=": SymbolInfo(6, 2, "infix"),
+        "≠": SymbolInfo(6, 2, "infix"),
+        "<": SymbolInfo(6, 2, "infix"),
+        ">": SymbolInfo(6, 2, "infix"),
+        "≤": SymbolInfo(6, 2, "infix"),
+        "≥": SymbolInfo(6, 2, "infix"),
+        "∈": SymbolInfo(6, 2, "infix"),
+        ":∈": SymbolInfo(6, 2, "infix"),
+        "∉": SymbolInfo(6, 2, "infix"),
 
-        "→" : SymbolInfo(6.5),  # Function type, treated as relation for precedence
+        "→" : SymbolInfo(6.5, 2, "infix"),
 
         # Set operators
-        "∪": SymbolInfo(7),
-        "∩": SymbolInfo(7),
-        "∖": SymbolInfo(7),
+        "∪": SymbolInfo(7, 2, "infix"),
+        "∩": SymbolInfo(7, 2, "infix"),
+        "∖": SymbolInfo(7, 2, "infix"),
 
         # Range
-        "‥": SymbolInfo(8),
+        "‥": SymbolInfo(8, 2, "infix"),
 
         # Additive
-        "+": SymbolInfo(9),
-        "-": SymbolInfo(9),
-        "−": SymbolInfo(9),
+        "+": SymbolInfo(9, 2, "infix"),
+        "-": SymbolInfo(9, 2, "infix"),
+        "−": SymbolInfo(9, 2, "infix"),
 
         # Multiplicative
-        "*": SymbolInfo(10),
-        "/": SymbolInfo(10),
-        "mod": SymbolInfo(10),
-        "·": SymbolInfo(10),
+        "*": SymbolInfo(10, 2, "infix"),
+        "/": SymbolInfo(10, 2, "infix"),
+        "mod": SymbolInfo(10, 2, "infix"),
+        "·": SymbolInfo(10, 2, "infix"),
 
-        # Unary NOT (highest among logical)
-        "¬": SymbolInfo(11),
+        # Unary
+        "¬": SymbolInfo(11, 1, "prefix"),
 
-        # Parentheses / structural
+        # Structural
         "(": SymbolInfo(0),
         ")": SymbolInfo(0),
         "{": SymbolInfo(0),
@@ -85,6 +85,12 @@ class SymbolSet:
 
     def precedence(self, op: str) -> int:
         return self.OPERATORS.get(op, SymbolInfo(-1)).precedence
+
+    def arity(self, op: str) -> int:
+        return self.OPERATORS.get(op, SymbolInfo(-1)).arity
+
+    def fixity(self, op: str) -> str:
+        return self.OPERATORS.get(op, SymbolInfo(-1)).fixity
 
     def is_operator(self, s: str) -> bool:
         return s in self.OPERATORS
@@ -170,6 +176,18 @@ class SyntaxTranslator:
             output.append(stack.pop())
         return output
     
+    def try_translate(self, expr: str, context: TranslationContext = None) -> str:
+        try:
+            return self.translate(expr, context)
+        except FunctionTranslationException as e:
+            function_name = str(e)
+            PatGlobal.add_function_definition(function_name, expr)
+            print(PatGlobal.functions[function_name])
+            raise FunctionTranslationException(function_name)
+        except Exception as e:
+            logging.error(f"Error translating expression: {expr}. Error: {e}")
+            return f"// Error translating expression: {expr}. Error: {e}"
+    
     def translate(self, expr: str, context: TranslationContext = None) -> str:
         tokens = self.classify_tokens(expr)
         postfix_tokens = self.to_postfix(tokens)
@@ -192,23 +210,60 @@ class SyntaxTranslator:
             "∨": OrTranslation(),
             "¬": NotTranslation(),
             "∈": MembershipTranslation(),
-            "→": FunctionTypeTranslation(),
+            "→": FunctionTranslation(),
+            ":∈": TypedMembershipTranslation(),
+            "≠": NotEqualTranslation(),
         }
 
         logging.debug(f"Translating expression: {expr}")
         for token in postfix_tokens:
-            stack_values = [t.value for t in stack]
+            stack_values = [t for t in stack]
             logging.debug(f"     Processing token: {token}, Stack before processing: {stack_values}")
             if isinstance(token, TermToken):
                 value = token.value if token.value not in ("TRUE", "FALSE") else token.value.lower()
+                value = value.replace("∅", "0")
                 stack.append(TranslatedToken(value))
 
             elif isinstance(token, FunctionCallToken) or isinstance(token, OperatorToken):
                 handler = handlers.get(token.value)
-                if handler:
-                    handler.translate(stack, context)
-                else:
-                    raise ValueError(f"No translation handler for operator/function: {token.value}")
+                try:
+                    if handler:
+                        handler.translate(stack, context)
+                    elif token.value in PatGlobal.functions:
+                        handler = FunctionCallTranslation(token.value)
+                        handler.translate(stack, context)
+                    else:
+                        raise NotImplementedError(f"No handler for symbol: {token.value}")
+                except NotImplementedError as e:
+                    info = self.sym_set.OPERATORS.get(
+                        token.value,
+                        SymbolInfo(precedence=0, arity=2, fixity="infix")
+                    )
+
+                    args: List[Union[TokenT, str]] = []
+                    for _ in range(info.arity):
+                        if stack:
+                            args.append(stack.pop())
+
+                    args.reverse()
+
+                    if info.fixity == "function":
+                        translated = f"{token.value}({', '.join(a.get_translation() for a in args)})"
+
+                    elif info.fixity == "prefix":
+                        translated = f"{token.value} {args[0].get_translation()}"
+
+                    else:
+                        translations: List[str] = []
+                        for arg in args:
+                            if isinstance(arg, TranslatableToken):
+                                translations.append(arg.get_translation())
+                            else:
+                                translations.append(arg)
+
+                        translated = f" {token.value} ".join(translations)
+
+                    stack.append(TranslatedToken(translated))
             
             else:
                 stack.append(token)
