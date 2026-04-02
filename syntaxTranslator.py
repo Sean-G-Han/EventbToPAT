@@ -186,10 +186,12 @@ class SyntaxTranslator:
         try:
             return self.translate(expr, context)
         except FunctionTranslationException as e:
+            PatGlobal.set_ai_used()
             function_name = str(e)
             PatGlobal.add_function_definition(function_name, expr)
             return f"/*Function Definition {expr}*/"
         except Exception as e:
+            PatGlobal.set_ai_used()
             logging.error(f"Error translating expression: {expr}. Error: {e}")
             return f"/*Help translate ( {expr} ) unless it is part of a function definition*/"
     

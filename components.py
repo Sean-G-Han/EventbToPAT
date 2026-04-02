@@ -323,6 +323,7 @@ class PatGlobal:
     functions: ClassVar[Dict[str, FunctionInfo]] = {}
     variables: ClassVar[Set[str]] = set()
     constants: ClassVar[Set[str]] = set()
+    is_ai_used: ClassVar[bool] = False
 
     @classmethod
     def increment_assert_count(cls) -> int:
@@ -390,3 +391,11 @@ class PatGlobal:
             for definition in info.definition:
                 result.append(f"  {definition}\n")
         return "".join(result)
+    
+    @classmethod
+    def set_ai_used(cls) -> None:
+        cls.is_ai_used = True
+    
+    @classmethod
+    def get_ai_used(cls) -> bool:
+        return cls.is_ai_used

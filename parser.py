@@ -102,6 +102,8 @@ class PatGenerator:
     def _generate_initialisation(self, machine: EventBMachine) -> str:
         lines = []
         for event in machine.events:
+            for any in event.any:
+                PatGlobal.add_variable(any)
             if event.is_initialisation():
                 for action in event.then:
                     translated = self.translator.try_translate(
@@ -162,29 +164,66 @@ class PatGenerator:
             lines.append(f"#assert P() |= []{invariant_name};")
         return "\n".join(lines)
 
+import argparse
+import re
+
 if __name__ == "__main__":
-    input_file = "context\\90_DOORS.txt"
-    output_file = "output.txt"
-    parser = EventBParser(input_file)
+    parser = argparse.ArgumentParser(description="Event-B to PAT Translator")
+    parser.add_argument("filename", help="Input Event-B file name (without extension or full path)")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="output.txt",
+        help="Output PAT file (default: output.txt)"
+    )
+
+    args = parser.parse_args()
+    input_file = f"context\\{args.filename}.txt"
+    output_file = args.output
+
+    parser_obj = EventBParser(input_file)
     translator = SyntaxTranslator()
     generator = PatGenerator(translator)
-    contexts, machines = parser.parse_file()
+
+    contexts, machines = parser_obj.parse_file()
     pat_code = generator.generate(contexts, machines)
+
+    declared_vars = set(re.findall(r"\bvar\s+([a-zA-Z_][a-zA-Z0-9_]*)\b", pat_code))
+
+    undeclared_vars = PatGlobal.variables - declared_vars
+
+    auto_declare_section = "\n// Auto-declared variables (used but not declared)\n"
+    for var_name in sorted(undeclared_vars):
+        auto_declare_section += f"var {var_name} = 0;\n"
+    auto_declare_section += "\n"
+
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("// Generated PAT model from Event-B\n")
+
         if len(PatGlobal.functions) > 0:
             f.write("#import \"PAT.Lib.Custom_Programs\";\n")
+
         if len(PatGlobal.enums) > 0:
-            f.write(f"enum {{{",".join(list(PatGlobal.enums))}}};\n")
-        for index, term_name in enumerate(PatGlobal.enums):
-            f.write(f"#define {term_name}_BIT {1 << index};\n")
+            f.write(f"enum {{{','.join(list(PatGlobal.enums))}}};\n")
+            for index, term_name in enumerate(PatGlobal.enums):
+                f.write(f"#define {term_name}_BIT {1 << index};\n")
+
+        f.write(auto_declare_section)
+
         f.write(pat_code)
         f.write("\n// End of generated PAT model\n")
-        with open("prompt.txt", "r", encoding="utf-8") as prompt:
-            f.write("\n")
-            f.write(prompt.read())
-            f.write("\n")
-        f.write(f"*/\n")
+
+        if PatGlobal.get_ai_used():
+            with open("prompt.txt", "r", encoding="utf-8") as prompt:
+                f.write("\n")
+                f.write(prompt.read())
+                f.write("\n")
+
+            f.write("*/\n")
+
+    print(f"Generated PAT model written to {output_file}")
+    PatGlobal.print_globals()
+
     print(f"Generated PAT model written to {output_file}")
     PatGlobal.print_globals()
 
