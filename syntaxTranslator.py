@@ -55,6 +55,9 @@ class SymbolSet:
         "∪": SymbolInfo(7, 2, "infix"),
         "∩": SymbolInfo(7, 2, "infix"),
         "∖": SymbolInfo(7, 2, "infix"),
+        "⊆": SymbolInfo(7, 2, "infix"),
+        "×": SymbolInfo(7, 2, "infix"),
+        "⩥": SymbolInfo(7, 2, "infix"), # Relational image
 
         # Range
         "‥": SymbolInfo(8, 2, "infix"),
@@ -182,11 +185,10 @@ class SyntaxTranslator:
         except FunctionTranslationException as e:
             function_name = str(e)
             PatGlobal.add_function_definition(function_name, expr)
-            print(PatGlobal.functions[function_name])
-            raise FunctionTranslationException(function_name)
+            return f"/*Function Definition {expr}*/"
         except Exception as e:
             logging.error(f"Error translating expression: {expr}. Error: {e}")
-            return f"// Error translating expression: {expr}. Error: {e}"
+            return f"/*Help translate {expr} unless it is part of a function definition*/"
     
     def translate(self, expr: str, context: TranslationContext = None) -> str:
         tokens = self.classify_tokens(expr)
@@ -213,6 +215,12 @@ class SyntaxTranslator:
             "→": FunctionTranslation(),
             ":∈": TypedMembershipTranslation(),
             "≠": NotEqualTranslation(),
+            "∪": UnionTranslation(),
+            "∩": IntersectionTranslation(),
+            "∖": SetMinusTranslation(),
+            "⊆": SubsetTranslation(),
+            "×": CartesianProductTranslation(),
+            "⩥": RangeSubtractionTranslation(),
         }
 
         logging.debug(f"Translating expression: {expr}")
@@ -226,44 +234,12 @@ class SyntaxTranslator:
 
             elif isinstance(token, FunctionCallToken) or isinstance(token, OperatorToken):
                 handler = handlers.get(token.value)
-                try:
-                    if handler:
-                        handler.translate(stack, context)
-                    elif token.value in PatGlobal.functions:
-                        handler = FunctionCallTranslation(token.value)
-                        handler.translate(stack, context)
-                    else:
-                        raise NotImplementedError(f"No handler for symbol: {token.value}")
-                except NotImplementedError as e:
-                    info = self.sym_set.OPERATORS.get(
-                        token.value,
-                        SymbolInfo(precedence=0, arity=2, fixity="infix")
-                    )
+                if handler:
+                    handler.translate(stack, context)
+                elif token.value in PatGlobal.functions:
+                    handler = FunctionCallTranslation(token.value)
+                    handler.translate(stack, context)
 
-                    args: List[Union[TokenT, str]] = []
-                    for _ in range(info.arity):
-                        if stack:
-                            args.append(stack.pop())
-
-                    args.reverse()
-
-                    if info.fixity == "function":
-                        translated = f"{token.value}({', '.join(a.get_translation() for a in args)})"
-
-                    elif info.fixity == "prefix":
-                        translated = f"{token.value} {args[0].get_translation()}"
-
-                    else:
-                        translations: List[str] = []
-                        for arg in args:
-                            if isinstance(arg, TranslatableToken):
-                                translations.append(arg.get_translation())
-                            else:
-                                translations.append(arg)
-
-                        translated = f" {token.value} ".join(translations)
-
-                    stack.append(TranslatedToken(translated))
             
             else:
                 stack.append(token)

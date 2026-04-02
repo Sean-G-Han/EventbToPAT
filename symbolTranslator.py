@@ -77,6 +77,28 @@ class AssignmentTranslation(TranslationHandler):
         value = pop_value(stack)
         name = pop_value(stack)
 
+        if isinstance(value, CartesianProductToken):
+            push_translated(
+                stack,
+                f" for(int i=0;i<{value.domain}_SIZE;i++) {{ \n{name}[i] = {value.value};\n}}\n"
+            )
+            return
+        
+        if isinstance(value, RangeSubtractionToken):
+            name = value.function
+            elem = value.value
+
+            result = (
+                f"for(int i=0;i<{name}_SIZE;i++)\n"
+                "{\n"
+                f"    if({name}[i] == {elem})\n"
+                f"        {name}[i] = -1;\n"
+                "}\n"
+            )
+
+            push_translated(stack, result)
+            return
+
         if context == TranslationContext.CONTEXT:
             push_translated(stack, f"#define {name} {value};\n")
             return
@@ -240,11 +262,6 @@ class MembershipTranslation(TranslationHandler):
         right = pop_value(stack)
         left = pop_value(stack)
 
-        if left not in PatGlobal.variables and left not in PatGlobal.constants:
-            stack.append(left)
-            stack.append(right)
-            raise NotImplementedError(f"Left operand of membership must be a variable or constant, got {left}")
-
         if right == "ℕ":
             result = f"({left} >= 0)"
         elif right == "ℕ1":
@@ -281,6 +298,80 @@ class FunctionCallTranslation(TranslationHandler):
         info = PatGlobal.functions.get(self.func_name)
         arity = info.arity if info else -1
         args = [pop_value(stack) for _ in range(arity)]
-        print(f"Translating function call: {self.func_name} with args {args}")
         result = f"{self.func_name}({', '.join(reversed(args))})"
         stack.append(FunctionCallToken(result))
+
+class UnionTranslation(TranslationHandler):
+    def translate(self, stack, context):
+        right = pop_value(stack)
+        left = pop_value(stack)
+
+        push_translated(stack, f"({left} | {right})")
+
+class IntersectionTranslation(TranslationHandler):
+    def translate(self, stack, context):
+        right = pop_value(stack)
+        left = pop_value(stack)
+
+        push_translated(stack, f"({left} & {right})")
+
+class SetMinusTranslation(TranslationHandler):
+    def translate(self, stack, context):
+        right = pop_value(stack)
+        left = pop_value(stack)
+
+        push_translated(stack, f"({left} & ~{right})")
+
+class SubsetTranslation(TranslationHandler):
+    def translate(self, stack, context):
+        right = pop_value(stack)
+        left = pop_value(stack)
+
+        push_translated(stack, f"(({left} & {right}) == {left})")
+
+
+class CartesianProductTranslation(TranslationHandler):
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
+        right = stack.pop()
+        left = stack.pop()
+
+        # Detect P × {value}
+        if isinstance(right, SetToken) and len(right.value) == 1:
+            value = right.value[0].value
+
+            result = CartesianProductToken(
+                domain=left,
+                value=value
+            )
+
+            stack.append(result)
+            return
+
+        raise NotImplementedError(f"Only P × {value} supported currently")
+
+class RangeSubtractionTranslation(TranslationHandler):
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
+        right = stack.pop()
+        left = stack.pop()
+
+        # only support {x}
+        if isinstance(right, SetToken) and len(right.value) == 1:
+            value = right.value[0].value
+
+            stack.append(
+                RangeSubtractionToken(
+                    function=left,
+                    value=value
+                )
+            )
+            return
+
+        raise NotImplementedError("Only f ⩥ {x} supported")
+    
+class PairTranslation(TranslationHandler):
+    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
+        right = pop_value(stack)
+        left = pop_value(stack)
+        # Build a tuple
+        result = f"({left}, {right})"
+        push_translated(stack, result)

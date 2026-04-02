@@ -78,13 +78,10 @@ class PatGenerator:
             for set_name in ctx.sets:
                 PatGlobal.add_set(set_name)
             for axiom in ctx.axioms:
-                try:
-                    translated = self.translator.try_translate(
-                        axiom.predicate,
-                        context=TranslationContext.CONTEXT
-                    )
-                except FunctionTranslationException as e:
-                    translated = f""
+                translated = self.translator.try_translate(
+                    axiom.predicate,
+                    context=TranslationContext.CONTEXT
+                )
                 lines.append(translated) if len(translated) > 0 else None
         return "\n".join(lines)
 
@@ -184,7 +181,56 @@ if __name__ == "__main__":
         f.write(pat_code)
         f.write("\n// End of generated PAT model\n")
         if len(PatGlobal.functions) > 0:
-            f.write(f"/*AI Prompt for custom functions\nFor the following functions, please provide write the function in C#. Preserve the parameters and behaviour. In the event that the function seem ambiguous you can assume anything as long as the math syntax is correct\n")
+            f.write(
+                "/*AI Prompt for custom functions\n"
+                "For the following functions, please provide write the function in C# as a library import for PAT. "
+                "If unspecified you can assume all parameters and return type are integers.\n"
+                "Preserve the parameters and behaviour. "
+                "In the event that the function seem ambiguous you can assume anything "
+                "as long as the math syntax is correct. For example...\n"
+                "using System;\n"
+                "using System.Collections.Generic;\n"
+                "using System.Text;\n"
+                "\n"
+                "//the namespace must be PAT.Lib, the class and method names can be arbitrary\n"
+                "namespace PAT.Lib\n"
+                "{\n"
+                "    /// <summary>\n"
+                "    /// You can use static library in PAT model.\n"
+                "    /// All methods should be declared as public static.\n"
+                "    /// \n"
+                "    /// The parameters must be of type \"int\", \"bool\", \"int[]\" or user defined data type\n"
+                "    /// The number of parameters can be 0 or many\n"
+                "    /// \n"
+                "    /// The return type can be void, bool, int, int[] or user defined data type\n"
+                "    /// \n"
+                "    /// The method name will be used directly in your model.\n"
+                "    /// e.g. call(max, 10, 2), call(dominate, 3, 2), call(amax, [1,3,5]),\n"
+                "    /// \n"
+                "    /// Note: method names are case sensetive\n"
+                "    /// </summary>\n"
+                "    public class Example\n"
+                "    {\n"
+                "        //==========================================================\n"
+                "        //the following sections are the functions used by Mailbox \n"
+                "        //==========================================================\n"
+                "        private static List<int[]> Matrix;\n"
+                "\n"
+                "        //dominate(v,w) == CHOOSE x \in 1..7 : GT(x, v) /\ GT(x, w)\n"
+                "        public static int dominate(int v, int w)\n"
+                "        {\n"
+                "            for (int i = 1; i <= 7; i++)\n"
+                "            {\n"
+                "                if (matrix[i - 1][v - 1] == 1 && matrix[i - 1][w - 1] == 1)\n"
+                "                {\n"
+                "                    return i;\n"
+                "                }\n"
+                "            }\n"
+                "            return -1;\n"
+                "        }\n"
+                "    }\n"
+                "}\n"
+            )
             f.write(f"{PatGlobal.functions_to_string()}\n")
             f.write(f"*/\n")
     print(f"Generated PAT model written to {output_file}")

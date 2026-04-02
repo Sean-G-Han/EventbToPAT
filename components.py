@@ -118,18 +118,24 @@ class FunctionCallToken(Token):
         """
         Converts 'func(param1, param2, ...)' into 'call(func, param1, param2, ...)'.
         """
-        # Match function name and parameters
-        print(f"Translating function call: {self.value}")
+
         match = re.fullmatch(r'\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)\s*', self.value)
         if not match:
             raise ValueError(f"Invalid function call expression: {self.value}")
-        print(f"Matched function call: {match.groups()}")
         
         func_name, params = match.groups()
-        # Remove extra spaces from parameters and keep them as a list
         params = [p.strip() for p in params.split(',')] if params.strip() else []
-        # Join parameters back for PAT call
         return f"call({func_name}, {', '.join(params)})"
+
+@dataclass(frozen=True, slots=True)
+class CartesianProductToken(TranslatableToken):
+    domain: str
+    value: str
+
+@dataclass(frozen=True, slots=True)
+class RangeSubtractionToken(TranslatableToken):
+    function: str
+    value: str
 
 TokenT = Union[
     OperatorToken,
@@ -143,6 +149,8 @@ TokenT = Union[
     TranslatedToken,
     FunctionTypeToken,
     FunctionCallToken,
+    CartesianProductToken,
+    RangeSubtractionToken
 ]
 
 @dataclass(frozen=True, slots=True)
@@ -384,6 +392,7 @@ class PatGlobal:
         print(f"Enums: {cls.enums}")
         print(f"Variables: {cls.variables}")
         print(f"Sets: {cls.sets}")
+        print(f"Functions: {cls.functions}")
 
     @classmethod
     def functions_to_string(cls) -> str:
