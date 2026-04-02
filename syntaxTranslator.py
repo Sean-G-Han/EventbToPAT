@@ -75,6 +75,7 @@ class SymbolSet:
 
         # Unary
         "¬": SymbolInfo(11, 1, "prefix"),
+        "∼": SymbolInfo(11, 1, "prefix"),
 
         # Structural
         "(": SymbolInfo(0),
@@ -84,6 +85,8 @@ class SymbolSet:
         "[": SymbolInfo(0),
         "]": SymbolInfo(0),
         ",": SymbolInfo(0),
+
+        "↦": SymbolInfo(6.5, 2, "infix") # Maplet, often used in function definitions
     }
 
     def precedence(self, op: str) -> int:
@@ -188,7 +191,7 @@ class SyntaxTranslator:
             return f"/*Function Definition {expr}*/"
         except Exception as e:
             logging.error(f"Error translating expression: {expr}. Error: {e}")
-            return f"/*Help translate {expr} unless it is part of a function definition*/"
+            return f"/*Help translate ( {expr} ) unless it is part of a function definition*/"
     
     def translate(self, expr: str, context: TranslationContext = None) -> str:
         tokens = self.classify_tokens(expr)
@@ -219,8 +222,6 @@ class SyntaxTranslator:
             "∩": IntersectionTranslation(),
             "∖": SetMinusTranslation(),
             "⊆": SubsetTranslation(),
-            "×": CartesianProductTranslation(),
-            "⩥": RangeSubtractionTranslation(),
         }
 
         logging.debug(f"Translating expression: {expr}")

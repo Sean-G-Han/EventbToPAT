@@ -77,28 +77,6 @@ class AssignmentTranslation(TranslationHandler):
         value = pop_value(stack)
         name = pop_value(stack)
 
-        if isinstance(value, CartesianProductToken):
-            push_translated(
-                stack,
-                f" for(int i=0;i<{value.domain}_SIZE;i++) {{ \n{name}[i] = {value.value};\n}}\n"
-            )
-            return
-        
-        if isinstance(value, RangeSubtractionToken):
-            name = value.function
-            elem = value.value
-
-            result = (
-                f"for(int i=0;i<{name}_SIZE;i++)\n"
-                "{\n"
-                f"    if({name}[i] == {elem})\n"
-                f"        {name}[i] = -1;\n"
-                "}\n"
-            )
-
-            push_translated(stack, result)
-            return
-
         if context == TranslationContext.CONTEXT:
             push_translated(stack, f"#define {name} {value};\n")
             return
@@ -328,45 +306,6 @@ class SubsetTranslation(TranslationHandler):
         left = pop_value(stack)
 
         push_translated(stack, f"(({left} & {right}) == {left})")
-
-
-class CartesianProductTranslation(TranslationHandler):
-    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
-        right = stack.pop()
-        left = stack.pop()
-
-        # Detect P × {value}
-        if isinstance(right, SetToken) and len(right.value) == 1:
-            value = right.value[0].value
-
-            result = CartesianProductToken(
-                domain=left,
-                value=value
-            )
-
-            stack.append(result)
-            return
-
-        raise NotImplementedError(f"Only P × {value} supported currently")
-
-class RangeSubtractionTranslation(TranslationHandler):
-    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
-        right = stack.pop()
-        left = stack.pop()
-
-        # only support {x}
-        if isinstance(right, SetToken) and len(right.value) == 1:
-            value = right.value[0].value
-
-            stack.append(
-                RangeSubtractionToken(
-                    function=left,
-                    value=value
-                )
-            )
-            return
-
-        raise NotImplementedError("Only f ⩥ {x} supported")
     
 class PairTranslation(TranslationHandler):
     def translate(self, stack: List[TokenT], context: TranslationContext) -> None:

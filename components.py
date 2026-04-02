@@ -127,16 +127,6 @@ class FunctionCallToken(Token):
         params = [p.strip() for p in params.split(',')] if params.strip() else []
         return f"call({func_name}, {', '.join(params)})"
 
-@dataclass(frozen=True, slots=True)
-class CartesianProductToken(TranslatableToken):
-    domain: str
-    value: str
-
-@dataclass(frozen=True, slots=True)
-class RangeSubtractionToken(TranslatableToken):
-    function: str
-    value: str
-
 TokenT = Union[
     OperatorToken,
     OpeningRoundBracketToken,
@@ -149,8 +139,6 @@ TokenT = Union[
     TranslatedToken,
     FunctionTypeToken,
     FunctionCallToken,
-    CartesianProductToken,
-    RangeSubtractionToken
 ]
 
 @dataclass(frozen=True, slots=True)
