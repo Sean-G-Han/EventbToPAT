@@ -2,6 +2,8 @@ import json
 from typing import List, Dict, Any, Tuple
 from components import *
 from syntaxTranslator import *
+import argparse
+import re
 
 class EventBParser:
     """
@@ -138,7 +140,7 @@ class PatGenerator:
             guard_str = " && ".join(guards) if guards else "true"
             action_str = " ".join(actions)
 
-            clause = f"[{guard_str}] {event.name}{{ {action_str} }} -> P"
+            clause = f"[{guard_str}] {event.name}{{ {action_str} }} -> Process"
             event_clauses.append(clause)
 
         if not event_clauses:
@@ -146,7 +148,7 @@ class PatGenerator:
 
         process_body = "\n[]\n".join(event_clauses)
 
-        return f"P =\n{process_body};"
+        return f"Process =\n{process_body};"
 
     def _generate_invariants(self, machine: EventBMachine) -> str:
         lines = []
@@ -161,11 +163,8 @@ class PatGenerator:
             )
 
             lines.append(f"#define {invariant_name} {translated};")
-            lines.append(f"#assert P() |= []{invariant_name};")
+            lines.append(f"#assert Process() |= []{invariant_name};")
         return "\n".join(lines)
-
-import argparse
-import re
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Event-B to PAT Translator")
@@ -190,7 +189,7 @@ if __name__ == "__main__":
 
     declared_vars = set(re.findall(r"\bvar\s+([a-zA-Z_][a-zA-Z0-9_]*)\b", pat_code))
 
-    undeclared_vars = PatGlobal.variables - declared_vars
+    undeclared_vars = PatGlobal.variables - PatGlobal.enums - declared_vars
 
     auto_declare_section = "\n// Auto-declared variables (used but not declared)\n"
     for var_name in sorted(undeclared_vars):
@@ -218,11 +217,9 @@ if __name__ == "__main__":
                 f.write("\n")
                 f.write(prompt.read())
                 f.write("\n")
+                f.write(PatGlobal.functions_to_string())
 
             f.write("*/\n")
-
-    print(f"Generated PAT model written to {output_file}")
-    PatGlobal.print_globals()
 
     print(f"Generated PAT model written to {output_file}")
     PatGlobal.print_globals()

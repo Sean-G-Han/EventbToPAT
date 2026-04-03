@@ -27,10 +27,22 @@ class TranslationHandler:
     def translate(self, stack: List[str], context: TranslationContext) -> str:
         raise NotImplementedError
 
+def recursively_get__value(token: TokenT) -> str:
+    if isinstance(token, TranslatedToken):
+        return recursively_get__value(token.value)
+    elif isinstance(token, FunctionCallToken):
+        return token.to_pat_call()
+    elif isinstance(token, SetToken):
+        return f"{{{', '.join(recursively_get__value(TermToken(e)) for e in token.value)}}}"
+    elif isinstance(token, TermToken):
+        return recursively_get__value(token.value)
+    else:
+        return str(token)
+
 def pop_value(stack: List[TokenT]) -> str|TokenT:
     token = stack.pop()
-    if isinstance(token, TranslatedToken):
-        return token.value
+    if isinstance(token, TranslatableToken):
+        return recursively_get__value(token)
     return token # for more complicated stuff
 
 
@@ -139,7 +151,7 @@ def comparison_handler(stack: List[TokenT], context, symbol):
         result = (
             f"#define {left} 0;// Please change the value here\n"
             f"#define INV{count} {left} {symbol} {right};\n"
-            f"#assert P() |= []INV{count};\n"
+            f"#assert Process() |= []INV{count};\n"
         )
 
         push_translated(stack, result)

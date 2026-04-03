@@ -1,9 +1,9 @@
 /* ================= AI TRANSLATION CONTEXT =================
 This PAT model is automatically generated from an Event-B specification.
-
 Your task is to help translate remaining Event-B constructs into PAT syntax.
-
-You should return not only the entire completed PAT program, but also any custom function in comments below
+You should return not only the entire completed PAT program, but also any custom function declarations.
+You shouldn't change any enum or variables that have already been declared above.
+Only add variables if they are not declared above.
 
 ============================================================
 1. SET REPRESENTATION
@@ -15,112 +15,74 @@ Example:
 
 Event-B:
 SETS {red, green}
-
-PAT:
+becomes:
 enum {red, green};
 #define red_BIT 1
 #define green_BIT 2
 
 Set membership:
-
 x ∈ S
-
 becomes:
-
 (S & x_BIT) != 0
 
-
 Set insertion:
-
 S := S ∪ {x}
-
 becomes:
-
 S = S | x_BIT
 
-
 Set removal:
-
 S := S \ {x}
-
 becomes:
-
 S = S & ~x_BIT
 
+Keep in mind only a single global enum should be used.
 
 ============================================================
 2. RELATION / PAIR REPRESENTATION
 ============================================================
 
 Event-B pair:
-
 d ↦ p
-
 is encoded as a unique enum constant:
-
 enum {d↦p}
-
 #define d↦p_BIT ...
 
-
 Relation membership:
-
 d↦p ∈ R
-
 becomes:
-
 (R & d↦p_BIT) != 0
-
 
 ============================================================
 3. DOMAIN OPERATOR
 ============================================================
 
 Event-B:
-
 p ∈ dom(dap)
-
 means:
-
 ∃d · d↦p ∈ dap
-
 Translate as:
-
 exists mapping where second component equals p
-
 
 ============================================================
 4. FUNCTION CALLS
 ============================================================
 
 Event-B:
-
 f(x)
-
 PAT:
-
 call(f, x)
 
-
 Functions must be implemented in C#. An example has been provided below.
-
+In the event that function definition is abstact or unclear, use the most convenient interpretation.
 
 """
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-//the namespace must be PAT.Lib, the class and method names can be arbitrary
 namespace PAT.Lib
 {
-    /// You can use static library in PAT model.
-    /// All methods should be declared as public static.
-    /// The parameters must be of type "int", "bool", "int[]" or user defined data type
-    /// The number of parameters can be 0 or many
-    /// The return type can be void, bool, int, int[] or user defined data type
-    /// The method name will be used directly in your model.
-    /// e.g. call(max, 10, 2), call(dominate, 3, 2), call(amax, [1,3,5]),
-    /// Note: method names are case sensetive
+
     public class Example
     {
         private static List<int[]> Matrix;
@@ -141,7 +103,6 @@ namespace PAT.Lib
 }
 """
 
-
 ============================================================
 5. TYPE MAPPING
 ============================================================
@@ -155,33 +116,42 @@ SET    → bitmask int
 RELATION → bitmask int
 FUNCTION → C# static method
 
-
 ============================================================
 6. INVERSE OPERATOR
 ============================================================
 
 Event-B:
-
 org∼ ; dst
-
 means relational composition with inverse.
-
 If difficult, you may approximate using helper functions.
-
 
 ============================================================
 7. TRANSLATION PRIORITY
 ============================================================
 
 When translating guards:
-
 - Prefer bitmask operations
 - Avoid introducing new syntax
 - Keep deterministic behaviour
 - Preserve semantics
 
+When writing defines:
+- Remember to add ";" at the end. e.g. "#define x 1;"
+- Ensure define blocks are only 1 line as multiline is not supported
+
+Avoid:
+- helper macros like 
+    #define IN_DOM_DAP(p) ( \
+        ((dap & d_p1_BIT) != 0 && p == p1) || \
+        ((dap & d_p2_BIT) != 0 && p == p2) \
+    )
+    If needed add it as a library function  instead
 
 ============================================================
 Provide translations for all comments, unless it seems to be a part of a function declaration:
-
 "Help translate ... unless it is part of a function definition"
+You should only provide 1 final output code with the library functions inside a comment block so users can copy it into their code
+
+============================================================
+8. FUNCTIONS THAT NEED TO BE TRANSLATED
+============================================================
