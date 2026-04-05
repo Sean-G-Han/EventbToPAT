@@ -4,6 +4,8 @@ from components import *
 from syntaxTranslator import *
 import argparse
 import re
+import argparse
+import re
 
 class EventBParser:
     """
@@ -141,6 +143,7 @@ class PatGenerator:
             action_str = " ".join(actions)
 
             clause = f"[{guard_str}] {event.name}{{ {action_str} }} -> Process"
+            clause = f"[{guard_str}] {event.name}{{ {action_str} }} -> Process"
             event_clauses.append(clause)
 
         if not event_clauses:
@@ -148,6 +151,7 @@ class PatGenerator:
 
         process_body = "\n[]\n".join(event_clauses)
 
+        return f"Process =\n{process_body};"
         return f"Process =\n{process_body};"
 
     def _generate_invariants(self, machine: EventBMachine) -> str:
@@ -164,21 +168,12 @@ class PatGenerator:
 
             lines.append(f"#define {invariant_name} {translated};")
             lines.append(f"#assert Process() |= []{invariant_name};")
+            lines.append(f"#assert Process() |= []{invariant_name};")
         return "\n".join(lines)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Event-B to PAT Translator")
-    parser.add_argument("filename", help="Input Event-B file name (without extension or full path)")
-    parser.add_argument(
-        "-o",
-        "--output",
-        default="output.txt",
-        help="Output PAT file (default: output.txt)"
-    )
-
-    args = parser.parse_args()
-    input_file = f"context\\{args.filename}.txt"
-    output_file = args.output
+def main(filename: str, output: str = "output.txt") -> bool:
+    input_file = f"context\\{filename}.txt"
+    output_file = output
 
     parser_obj = EventBParser(input_file)
     translator = SyntaxTranslator()
@@ -188,7 +183,6 @@ if __name__ == "__main__":
     pat_code = generator.generate(contexts, machines)
 
     declared_vars = set(re.findall(r"\bvar\s+([a-zA-Z_][a-zA-Z0-9_]*)\b", pat_code))
-
     undeclared_vars = PatGlobal.variables - PatGlobal.enums - declared_vars
 
     auto_declare_section = "\n// Auto-declared variables (used but not declared)\n"
@@ -212,16 +206,27 @@ if __name__ == "__main__":
         f.write(pat_code)
         f.write("\n// End of generated PAT model\n")
 
+        # Restore AI section
         if PatGlobal.get_ai_used():
             with open("prompt.txt", "r", encoding="utf-8") as prompt:
                 f.write("\n")
                 f.write(prompt.read())
                 f.write("\n")
                 f.write(PatGlobal.functions_to_string())
+                f.write(PatGlobal.functions_to_string())
 
             f.write("*/\n")
+            return True
+        return False
 
     print(f"Generated PAT model written to {output_file}")
     PatGlobal.print_globals()
 
-    
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Event-B to PAT Translator")
+    parser.add_argument("filename")
+    parser.add_argument("-o", "--output", default="output.txt")
+
+    args = parser.parse_args()
+    main(args.filename, args.output)

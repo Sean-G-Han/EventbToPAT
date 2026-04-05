@@ -2,7 +2,7 @@
 This PAT model is automatically generated from an Event-B specification.
 Your task is to help translate remaining Event-B constructs into PAT syntax.
 You should return not only the entire completed PAT program, but also any custom function declarations.
-You shouldn't change any enum or variables that have already been declared above.
+You shouldn't change/delete any enum or variables that have already been declared above.
 Only add variables if they are not declared above.
 
 ============================================================
@@ -15,6 +15,7 @@ Example:
 
 Event-B:
 SETS {red, green}
+becomes:
 becomes:
 enum {red, green};
 #define red_BIT 1
@@ -35,6 +36,7 @@ S := S \ {x}
 becomes:
 S = S & ~x_BIT
 
+Keep in mind only a single global enum should be used.
 Keep in mind only a single global enum should be used.
 
 ============================================================
@@ -74,6 +76,7 @@ call(f, x)
 
 Functions must be implemented in C#. An example has been provided below.
 In the event that function definition is abstact or unclear, use the most convenient interpretation.
+In the event that function definition is abstact or unclear, use the most convenient interpretation.
 
 """
 using System;
@@ -82,6 +85,7 @@ using System.Text;
 
 namespace PAT.Lib
 {
+
 
     public class Example
     {
@@ -146,10 +150,26 @@ Avoid:
         ((dap & d_p2_BIT) != 0 && p == p2) \
     )
     If needed add it as a library function  instead
+When writing defines:
+- Remember to add ";" at the end. e.g. "#define x 1;"
+- Ensure define blocks are only 1 line as multiline is not supported
+
+Avoid:
+- helper macros like 
+    #define IN_DOM_DAP(p) ( \
+        ((dap & d_p1_BIT) != 0 && p == p1) || \
+        ((dap & d_p2_BIT) != 0 && p == p2) \
+    )
+    If needed add it as a library function  instead
 
 ============================================================
 Provide translations for all comments, unless it seems to be a part of a function declaration:
 "Help translate ... unless it is part of a function definition"
+You should only provide 1 final output code with the library functions inside a comment block so users can copy it into their code
+
+============================================================
+8. FUNCTIONS THAT NEED TO BE TRANSLATED
+============================================================
 You should only provide 1 final output code with the library functions inside a comment block so users can copy it into their code
 
 ============================================================
