@@ -9,35 +9,39 @@ Only add variables if they are not declared above.
 1. SET REPRESENTATION
 ============================================================
 
-Event-B sets are translated to enum + bitmask representation.
-
-Example:
+Event-B sets are translated to enum + bitmask representation in PAT.
 
 Event-B:
 SETS {red, green}
-becomes:
 becomes:
 enum {red, green};
 #define red_BIT 1
 #define green_BIT 2
 
 Set membership:
+Event-B:
 x ∈ S
 becomes:
-(S & x_BIT) != 0
+(S != 0 && (S & x_BIT) != 0) || (S == 0 && x_BIT == 0)
+This ensures that membership checks correctly handle the empty set.
+Every element x must use its _BIT constant unless the variable already exists
 
 Set insertion:
+Event-B:
 S := S ∪ {x}
 becomes:
 S = S | x_BIT
 
 Set removal:
+Event-B:
 S := S \ {x}
 becomes:
 S = S & ~x_BIT
 
-Keep in mind only a single global enum should be used.
-Keep in mind only a single global enum should be used.
+Important notes:
+- Only a single global enum should be used for all sets.
+- All set operations (membership, insertion, removal) must use the _BIT constants.
+- Empty-set membership is explicitly handled by the (S == 0 && x_BIT == 0) clause.
 
 ============================================================
 2. RELATION / PAIR REPRESENTATION
@@ -130,7 +134,35 @@ means relational composition with inverse.
 If difficult, you may approximate using helper functions.
 
 ============================================================
-7. TRANSLATION PRIORITY
+7. EARLY TERMINATION WITH SKIP
+============================================================
+
+Whenever appropriate, replace Process() with Skip if the action seems to cause a deadlock.
+
+Valid ways a deadlock can appear in PAT:
+
+1. **Self-disabling guard**:  
+   - An event modifies a variable that appears in its own guard, causing the guard to become false after firing.  
+   - Example: `final { b = true; } -> Process` where `b` is part of the guard. After firing, the guard is false, and no other transitions are enabled.
+
+2. **Exhausted bitmask/state**:  
+   - All bits in a required variable are cleared, leaving no enabled transitions.  
+   - Example: removing the last element from a set used in guards without providing an alternative path.
+
+3. **Blocked dependency**:  
+   - A transition depends on a variable being set by another transition, but that transition can no longer fire due to guard conditions.  
+   - This creates circular waiting and prevents progress.
+
+4. **Final or termination actions**:  
+   - Actions intended to mark system completion may disable themselves or other necessary events, leading to deadlock if represented as `Process()` instead of `Skip`.
+
+Guideline:
+
+- If an event represents termination or marking a “final state”, and firing it disables further transitions, **use `Skip`** to avoid deadlock.  
+- Ensure guards for such events still allow firing without blocking the system.
+
+============================================================
+8. TRANSLATION PRIORITY
 ============================================================
 
 When translating guards:
@@ -144,6 +176,7 @@ When writing defines:
 - Ensure define blocks are only 1 line as multiline is not supported
 
 Avoid:
+- adding more asserts unless in comment blocks
 - helper macros like 
     #define IN_DOM_DAP(p) ( \
         ((dap & d_p1_BIT) != 0 && p == p1) || \
@@ -168,10 +201,6 @@ Provide translations for all comments, unless it seems to be a part of a functio
 You should only provide 1 final output code with the library functions inside a comment block so users can copy it into their code
 
 ============================================================
-8. FUNCTIONS THAT NEED TO BE TRANSLATED
+9. FUNCTIONS THAT NEED TO BE TRANSLATED
 ============================================================
 You should only provide 1 final output code with the library functions inside a comment block so users can copy it into their code
-
-============================================================
-8. FUNCTIONS THAT NEED TO BE TRANSLATED
-============================================================

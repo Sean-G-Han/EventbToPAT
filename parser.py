@@ -168,7 +168,6 @@ class PatGenerator:
 
             lines.append(f"#define {invariant_name} {translated};")
             lines.append(f"#assert Process() |= []{invariant_name};")
-            lines.append(f"#assert Process() |= []{invariant_name};")
         return "\n".join(lines)
 
 def main(filename: str, output: str = "output.txt") -> bool:
@@ -204,6 +203,7 @@ def main(filename: str, output: str = "output.txt") -> bool:
         f.write(auto_declare_section)
 
         f.write(pat_code)
+        f.write("\n#assert Process() deadlockfree;\n")
         f.write("\n// End of generated PAT model\n")
 
         # Restore AI section
@@ -212,7 +212,6 @@ def main(filename: str, output: str = "output.txt") -> bool:
                 f.write("\n")
                 f.write(prompt.read())
                 f.write("\n")
-                f.write(PatGlobal.functions_to_string())
                 f.write(PatGlobal.functions_to_string())
 
             f.write("*/\n")
