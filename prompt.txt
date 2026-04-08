@@ -25,7 +25,11 @@ Membership:
 Event-B:
 x ∈ S
 PAT:
-(S & x_BIT) != 0
+(S == 0 && x_BIT == 0) || (S & x_BIT) != 0
+
+IMPORTANT:
+• DO NOT simplify this expression.
+• DO NOT remove the zero-case.
 
 
 Insertion:
@@ -39,14 +43,18 @@ Removal:
 Event-B:
 S := S \ {x}
 PAT:
-S = S - x_BIT
-
+if ((S & x_BIT) != 0) {
+    S = S - x_BIT;
+} 
 
 IMPORTANT:
-PAT does not support bitwise negation (~) or expressions like:
-S = S & ~x_BIT    ← NOT ALLOWED
-Always use subtraction for removal:
-S = S - x_BIT
+•  PAT does not support bitwise negation (~) or expressions like: S = S & ~x_BIT
+•  Always use subtraction for removal: S = S - x_BIT
+•  However, subtraction must only occur when the element exists in the set.
+•  Therefore always guard removal with:
+   if ((S & x_BIT) != 0) {
+       S = S - x_BIT;
+   } 
 
 
 Rules:
@@ -72,15 +80,24 @@ becomes:
 (R & d↦p_BIT) != 0
 
 ============================================================
-3. DOMAIN OPERATOR
+3. DOMAIN / RANGE OPERATOR
 ============================================================
 
 Event-B:
 p ∈ dom(dap)
 means:
-∃d · d↦p ∈ dap
+∃d · p↦d ∈ dap
+
 Translate as:
-exists mapping where second component equals p
+exists mapping where first component equals p
+
+Event-B:
+d ∈ ran(dap)
+means:
+∃p · p↦d ∈ dap
+
+Translate as:
+exists mapping where second component equals d
 
 ============================================================
 4. FUNCTION CALLS
