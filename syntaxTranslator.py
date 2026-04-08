@@ -239,7 +239,7 @@ class SyntaxTranslator:
                 handler = handlers.get(token.value)
                 if handler:
                     handler.translate(stack, context)
-                elif token.value in PatGlobal.functions:
+                else:
                     handler = FunctionCallTranslation(token.value)
                     handler.translate(stack, context)
 

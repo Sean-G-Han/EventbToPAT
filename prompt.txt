@@ -88,16 +88,27 @@ p ∈ dom(dap)
 means:
 ∃d · p↦d ∈ dap
 
-Translate as:
-exists mapping where first component equals p
-
 Event-B:
 d ∈ ran(dap)
 means:
 ∃p · p↦d ∈ dap
 
-Translate as:
-exists mapping where second component equals d
+IMPORTANT:
+• PAT does not support relations or pair structures directly.
+• If a relation is encoded using bitmasks or compressed state, domain and range cannot be computed automatically.
+• Whenever dom(...) or ran(...) appears, you MUST create a custom helper function that approximates the semantics using the encoded variables. e.g.
+  Event-B:
+  p ∈ dom(dap)
+  PAT:
+  Create helper function:
+  public static bool in_dom_dap(int dap, int p)
+  {
+     return ((dap & d_BIT) != 0) && p == p1_BIT;
+  }
+• Call function in PAT call(function_name, params)
+• Always create helper functions for dom(...) and ran(...)
+• Never attempt inline symbolic reasoning for dom/ran
+• Always approximate using encoded bitmask semantics
 
 ============================================================
 4. FUNCTION CALLS
@@ -207,6 +218,8 @@ Rules:
             ((dap & d_p2_BIT) != 0 && p == p2) \
         )
         If needed add it as a library function  instead
+    • assigning sets like "var {outside} = 0;"
+    • assigning a variable/enum with the same name as a previously declared variable/enum
 • When writing defines:
     • Remember to add ";" at the end. e.g. "#define x 1;"
     • Ensure define blocks are only 1 line as multiline is not supported
