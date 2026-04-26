@@ -196,9 +196,10 @@ def main(filename: str, output: str = "output.txt") -> bool:
             f.write("#import \"PAT.Lib.Custom_Programs\";\n")
 
         if len(PatGlobal.enums) > 0:
-            f.write(f"enum {{{','.join(list(PatGlobal.enums))}}};\n")
+            if not PatGlobal.get_ai_used():
+                f.write(f"enum {{{','.join(list(PatGlobal.enums))}}};\n")
             for index, term_name in enumerate(PatGlobal.enums):
-                f.write(f"#define {term_name}_BIT {1 << index};\n")
+                f.write(f"#define {term_name}_BIT {1 << index}; // 2^{index}\n")
 
         f.write(auto_declare_section)
 

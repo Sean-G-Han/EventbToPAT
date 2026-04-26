@@ -290,39 +290,3 @@ class FunctionCallTranslation(TranslationHandler):
         args = [pop_value(stack) for _ in range(arity)]
         result = f"{self.func_name}({', '.join(reversed(args))})"
         stack.append(FunctionCallToken(result))
-
-class UnionTranslation(TranslationHandler):
-    def translate(self, stack, context):
-        right = pop_value(stack)
-        left = pop_value(stack)
-
-        push_translated(stack, f"({left} | {right})")
-
-class IntersectionTranslation(TranslationHandler):
-    def translate(self, stack, context):
-        right = pop_value(stack)
-        left = pop_value(stack)
-
-        push_translated(stack, f"({left} & {right})")
-
-class SetMinusTranslation(TranslationHandler):
-    def translate(self, stack, context):
-        right = pop_value(stack)
-        left = pop_value(stack)
-
-        push_translated(stack, f"({left} & ~{right})")
-
-class SubsetTranslation(TranslationHandler):
-    def translate(self, stack, context):
-        right = pop_value(stack)
-        left = pop_value(stack)
-
-        push_translated(stack, f"(({left} & {right}) == {left})")
-    
-class PairTranslation(TranslationHandler):
-    def translate(self, stack: List[TokenT], context: TranslationContext) -> None:
-        right = pop_value(stack)
-        left = pop_value(stack)
-        # Build a tuple
-        result = f"({left}, {right})"
-        push_translated(stack, result)

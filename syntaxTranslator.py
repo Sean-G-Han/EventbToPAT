@@ -220,10 +220,6 @@ class SyntaxTranslator:
             "→": FunctionTranslation(),
             ":∈": TypedMembershipTranslation(),
             "≠": NotEqualTranslation(),
-            "∪": UnionTranslation(),
-            "∩": IntersectionTranslation(),
-            "∖": SetMinusTranslation(),
-            "⊆": SubsetTranslation(),
         }
 
         logging.debug(f"Translating expression: {expr}")
