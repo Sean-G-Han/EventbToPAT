@@ -20,7 +20,6 @@ PAT:
 #define green_BIT 2;
 S = S | red_BIT | green_BIT
 
-
 Membership:
 Event-B:
 x ∈ S
@@ -31,13 +30,17 @@ IMPORTANT:
 • DO NOT simplify this expression.
 • DO NOT remove the zero-case.
 
+Intersection:
+Event-B:
+S := S ∩ {x}
+PAT:
+S = S & x_BIT
 
 Insertion:
 Event-B:
 S := S ∪ {x}
 PAT:
 S = S | x_BIT
-
 
 Removal:
 Event-B:
